@@ -9,14 +9,14 @@ export const ProjectData = [
    },
    {
       id: 2,
-      imageSrc: require("../images/generalBackgroundGradient.png"),
+      imageSrc: require("../images/GoogsWebsite.png"),
       title: "Project 2",
       description: "Description 2",
       technologies: ["Tech 3", "Tech 4"]
    },
    {
       id: 3,
-      imageSrc: require("../images/generalBackgroundGradient.png"),
+      imageSrc: require("../images/SpotifyWebsite.png"),
       title: "Project 3",
       description: "Description 3",
       technologies: ["Tech 5", "Tech 6"]
