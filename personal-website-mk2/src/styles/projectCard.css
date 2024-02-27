@@ -1,0 +1,11 @@
+#project-card:hover {
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+  transition: 0.3s;
+}
+
+.tech-item {
+  /* border: 1.5px solid rgb(183, 180, 180); */
+  color: black;
+  background-color: rgb(225, 225, 225);
+}

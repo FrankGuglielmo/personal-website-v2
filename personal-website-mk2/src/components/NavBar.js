@@ -10,7 +10,6 @@ export default function NavBar() {
           <a href="/work" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors">Work Experience</a>
           <a href="/tech" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors">Technology</a>
           {/* <a href="/blog" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors">Blog</a> */}
-          <a href="/FrankGuglielmoResume.pdf" className="bg-yellow-400 text-purple-700 px-6 py-2 rounded-lg font-semibold hover:bg-yellow-300 transition-colors">Resume</a>
         </div>
       </div>
     </nav>
