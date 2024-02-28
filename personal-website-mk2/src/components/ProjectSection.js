@@ -11,13 +11,14 @@ export default function ProjectSection(projects) {
         </h2>
         <div className="flex flex-wrap justify-center items-center -mx-4">
             {ProjectData.map((project) => (
-                <div className="p-4" style={{ minWidth: '300px', maxWidth: '1/3' }}> {/* Adjust padding and width as needed */}
+                <div className="p-4" key={project.id} style={{ minWidth: '300px', maxWidth: '1/3' }}> {/* Adjust padding and width as needed */}
                 <ProjectCard
                   key={project.id}
                   imageSrc={project.imageSrc}
                   title={project.title}
                   description={project.description}
                   technologies={project.technologies}
+                  link={project.link}
                 />
               </div>
             ))}
