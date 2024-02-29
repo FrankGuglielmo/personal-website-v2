@@ -10,6 +10,7 @@ const App = () => {
     <div className="App">
       <HeroSection id="hero"/>
       <ProjectSection projects={ProjectData} id="projects" />
+      
     </div>
   );
 };

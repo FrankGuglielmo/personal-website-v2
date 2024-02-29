@@ -4,8 +4,10 @@ export const ProjectData = [
       id: 1,
       imageSrc: require("../images/spot.png"),
       title: "Spot",
-      description: "Description 1",
+      description: "An iOS app that helps you find the perfect study spot based on your location. It uses a gRPC server to communicate with a Python backend that sends location data to the user.",
       technologies: ["Swift", "SwiftUI", "Python", "gRPC"],
+      company: require("../images/usflogo.png"),
+      awards: require("../images/1stplacehackathon.png"),
       link: "/spot"
    },
    {
@@ -14,6 +16,8 @@ export const ProjectData = [
       title: "MacOS Daemon: \"Raum\"",
       description: "Description 5",
       technologies: ["Swift", "SwiftUI", "Go", "Kafka"],
+      company: require("../images/rokulogo.png"),
+      awards: "",
       link: ""
    },
    {
@@ -22,6 +26,8 @@ export const ProjectData = [
       title: "Duets.ai Transcription Service",
       description: "Description 4",
       technologies: ["Python", "Django", "Azure", "OpenAI Whisper", "Docker", "Supabase"],
+      company: require("../images/duetslogo.png"),
+      awards: "",
       link: "/duets"
    },
    {
@@ -30,6 +36,8 @@ export const ProjectData = [
       title: "Spotify Song Analysis",
       description: "Description 3",
       technologies: ["HTML", "CSS", "D3.js", "Github Pages"],
+      company: require("../images/usflogo.png"),
+      awards: "",
       link: "/spotify"
    },
    {
@@ -38,6 +46,8 @@ export const ProjectData = [
       title: "Search Engine: \"Googs\"",
       description: "Description 2",
       technologies: ["Java", "Jetty Servlets", "HTML", "CSS"],
+      company: require("../images/usflogo.png"),
+      awards: "",
       link: "/googs"
    } 
 ];

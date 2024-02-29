@@ -1,7 +1,7 @@
 import React from 'react';
 import "../styles/projectCard.css";
 
-export default function ProjectCard({id, imageSrc, title, description, technologies, link }) {
+export default function ProjectCard({id, imageSrc, title, description, technologies, company, awards, link }) {
   return (
 
     //If there is a link that is not "null" then wrap the card in an anchor tag
@@ -23,6 +23,13 @@ export default function ProjectCard({id, imageSrc, title, description, technolog
             </span>
           ))}
         </div>
+        <div className="px-6 pt-2 pb-2 relative flex flex-row justify-between">  
+          {awards === "" ? <img src={company} alt="Company Logo" className="w-1/2 pb-4" /> : <img src={company} alt="Company Logo" className="pt-2" style={{width: "46%", height:"46%"}}/>}
+          {awards !== "" && <img src={awards} alt="Awards" className="pb-4" style={{width: "45%"}}/>}
+        </div>
+
+
+            
       </div>
     </a>
     );
