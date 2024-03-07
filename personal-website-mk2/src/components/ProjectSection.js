@@ -2,7 +2,7 @@ import React from 'react';
 import ProjectCard from './ProjectCard';
 import { ProjectData } from '../data/projectsData';
 
-export default function ProjectSection(projects) {
+export default function ProjectSection() {
   return (
     <section className="bg-white py-8">
       <div className="container mx-auto px-6">
@@ -12,7 +12,7 @@ export default function ProjectSection(projects) {
         <div className="flex flex-wrap justify-center items-center -mx-4">
             {ProjectData.map((project) => (
                 <div className="p-4" key={project.id} style={{ minWidth: '300px', maxWidth: '1/3' }}> {/* Adjust padding and width as needed */}
-                <ProjectCard
+                <ProjectCard id={project.id}
                   key={project.id}
                   imageSrc={project.imageSrc}
                   title={project.title}
