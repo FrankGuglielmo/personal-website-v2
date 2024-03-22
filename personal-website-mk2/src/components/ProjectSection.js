@@ -16,7 +16,7 @@ export default function ProjectSection() {
                   key={project.id}
                   imageSrc={project.imageSrc}
                   title={project.title}
-                  description={project.description}
+                  description={project.cardDescription}
                   technologies={project.technologies}
                   company={project.company}
                   awards={project.awards}
