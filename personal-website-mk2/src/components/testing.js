@@ -17,7 +17,7 @@ function getRandomInt(min, max) {
   const techBubbles = TechData.map(item => ({
     x: getRandomInt(circleRadius, width - circleRadius),
     y: getRandomInt(circleRadius, height - circleRadius),
-    radius: item.strengthLevel * 15,
+    radius: item.strengthLevel * 15 + 15,
     content: item.imageUrl
   }));
 
@@ -127,7 +127,7 @@ const Test = () => {
             />
           </g>
         ))}
-        <circle cx={mousePosition.x} cy={mousePosition.y} r={circleRadius} fill="blue" />
+        <circle cx={mousePosition.x} cy={mousePosition.y} r={circleRadius} fill="none" />
       </svg>
     </div>
     
