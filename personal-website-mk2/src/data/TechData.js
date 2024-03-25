@@ -1,17 +1,17 @@
 export const TechData = [
     {
       name: "Java",
-      imageUrl: "path/to/image1.jpg",
+      imageUrl: require("../images/tech/JavaLogo.png"),
       strengthLevel: 5
     },
     {
       name: "Python",
-      imageUrl: "path/to/image2.jpg",
-      strengthLevel: 5
+      imageUrl: require("../images/tech/PythonLogo.png"),
+      strengthLevel: 3
     },
     {
       name: "Swift",
-      imageUrl: "path/to/image3.jpg",
-      strengthLevel: 1
+      imageUrl: require("../images/tech/SwiftLogo.png"),
+      strengthLevel: 3
     }
   ];
