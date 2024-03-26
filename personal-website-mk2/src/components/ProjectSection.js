@@ -4,7 +4,7 @@ import { ProjectData } from '../data/projectsData';
 
 export default function ProjectSection() {
   return (
-    <section className="bg-white py-8">
+    <section id="projects" className="bg-white py-8">
       <div className="container mx-auto px-6">
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
           Featured Projects

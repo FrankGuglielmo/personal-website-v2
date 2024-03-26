@@ -22,3 +22,55 @@ code {
   align-items: center;
   height: 100vh;
 }
+
+.jobContainer {
+  display: flex;
+  background-color: #f3f4f6; /* Light grey background */
+  border-radius: 0.5rem; /* Rounded corners */
+  overflow: hidden; /* Ensures the child elements adhere to the container's border radius */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); /* Shadow effect */
+  margin-bottom: 1rem; /* Space between job entries */
+}
+
+.jobImage {
+  flex-basis: 30%; /* Image takes up 30% of the container width */
+  background-color: #64748b; /* Placeholder color for the image */
+  height: 150px; /* Set a fixed height for the image */
+}
+
+.jobDetails {
+  flex-basis: 70%; /* Text details take up the remaining 70% */
+  padding: 1rem; /* Padding inside the text details */
+}
+
+.jobTitle {
+  font-size: 1.25rem; /* Larger text for the job title */
+  font-weight: bold; /* Make the title bold */
+  margin-bottom: 0.5rem; /* Space below the title */
+}
+
+.jobInfo {
+  margin-bottom: 1rem; /* Space between job info and description */
+}
+
+/* Use media queries to adjust the layout on smaller screens */
+@media (max-width: 768px) {
+  .jobContainer {
+    flex-direction: column;
+  }
+
+  .jobImage {
+    flex-basis: auto; /* Image takes the full width on small screens */
+    height: auto; /* Adjust height to maintain aspect ratio */
+  }
+
+  .jobDetails {
+    flex-basis: auto; /* Details take the full width on small screens */
+  }
+}
+
+/* Create a left-4.5 utility class to add a left margin of 1.125rem */
+.left-4.5 {
+  margin-left: 1.125rem;
+}
+

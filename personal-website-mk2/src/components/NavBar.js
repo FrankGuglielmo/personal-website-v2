@@ -6,11 +6,11 @@ export default function NavBar() {
       <div className="container mx-auto flex justify-between items-center p-4">
         <div className="font-bold text-xl text-white">FrankGuglielmo.com</div>
         <div className="flex items-center">
-          <a href="/projects" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Projects</a>
+          <a href="#projects" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Projects</a>
           <span className="text-white mx-2">|</span>
-          <a href="/work" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Work Experience</a>
+          <a href="#experience" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Work Experience</a>
           <span className="text-white mx-2">|</span>
-          <a href="/tech" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Technology</a>
+          <a href="#technology" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-semibold">Technology</a>
           {/* Uncomment and add another separator for the Blog link */}
           {/* <span className="text-white mx-2">|</span>
           <a href="/blog" className="text-white px-4 py-2 hover:text-yellow-300 transition-colors font-extrabold">Blog</a> */}

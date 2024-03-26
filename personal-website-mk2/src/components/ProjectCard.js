@@ -3,7 +3,6 @@ import "../styles/projectCard.css";
 import { Link } from 'react-router-dom';
 
 export default function ProjectCard({id, imageSrc, title, description, technologies, company, awards, link }) {
-  console.log(id);
   return (
     //If there is a link that is not "null" then wrap the card in an anchor tag
     <Link to={`/projects/${link}`} className="no-underline text-black">

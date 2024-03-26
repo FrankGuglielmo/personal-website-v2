@@ -11,7 +11,6 @@ export const ProjectData = [
       company: require("../images/usflogo.png"),
       awards: require("../images/1stplacehackathon.png"),
       link: "spot"
-      
    },
    {
       id: 2,

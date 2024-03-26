@@ -15,6 +15,12 @@ const DetailedProject = () => {
     // Render your detailed project using the found project ProjectData
     return (
         <div className="container mx-auto my-10 p-5">
+            <div className="mb-4">
+                {/* Minimalistic Back Button */}
+                <Link to="/" className="text-gray-800 hover:text-gray-500 text-lg font-semibold">
+                    ← Back
+                </Link>
+            </div>
             <div className="flex flex-wrap">
                 <div className="w-full sm:w-1/3 p-2">
                 <img src={project.imageSrc}  style= {{ width: '333px', height: '333px', objectFit: 'cover' }} alt={`${project.title} Thumbnail`} className="rounded-lg" />
