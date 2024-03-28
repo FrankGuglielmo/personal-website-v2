@@ -69,8 +69,18 @@ code {
   }
 }
 
-/* Create a left-4.5 utility class to add a left margin of 1.125rem */
-.left-4.5 {
-  margin-left: 1.125rem;
+#typing {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.blink {
+  border-right: 2px solid black;
+  animation: blink-caret 0.75s step-end infinite;
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent; }
+  50% { border-color: black; }
 }
 
