@@ -9,6 +9,7 @@ import WorkSection from './components/WorkSection';
 import Footer from './components/Footer';
 // import Footer from './components/Footer';
 import { ProjectData } from './data/projectsData';
+import { Analytics } from "@vercel/analytics/react"
 
 const App = () => {
 
@@ -39,6 +40,7 @@ const App = () => {
 
   return (
     <Router>
+      <Analytics />
       <Routes>
         <Route path="/" element={
           <div className="App">
