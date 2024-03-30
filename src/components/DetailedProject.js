@@ -6,9 +6,7 @@ import '../styles/projectCard.css';
 
 const DetailedProject = () => {
     const { projectName } = useParams();
-    console.log(projectName);
     const project = ProjectData.find((p) => p.link.toString() === projectName);
-    console.log(projectName);
     //If project is not found, return to home page
     if (!project) {
         return <Link to="/" />;
