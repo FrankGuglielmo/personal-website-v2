@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { ProjectData } from '../data/projectsData.js';
 import { Link } from 'react-router-dom';
+import '../styles/projectCard.css';
 
 const DetailedProject = () => {
     const { projectName } = useParams();
@@ -23,11 +24,17 @@ const DetailedProject = () => {
             </div>
             <div className="flex flex-wrap">
                 <div className="w-full sm:w-1/3 p-2">
-                <img src={project.imageSrc}  style= {{ width: '333px', height: '333px', objectFit: 'cover' }} alt={`${project.title} Thumbnail`} className="rounded-lg" />
+                    {project.url ? (
+                        <Link to={project.url}>
+                        <img src={project.imageSrc}  style={{ width: '333px', height: '333px', objectFit: 'cover' }} alt={`${project.title} Thumbnail`} className="rounded-lg hover-effect" />
+                        </Link>
+                    ) : (
+                        <img src={project.imageSrc}  style={{ width: '333px', height: '333px', objectFit: 'cover' }} alt={`${project.title} Thumbnail`} className="rounded-lg" />
+                    )}
                 </div>
                 <div className="w-full sm:w-2/3 p-2 flex flex-col justify-center">
                 <h1 className="text-3xl font-bold">{project.title}</h1>
-                <p className="text-gray-700 text-lg">{project.cardDescription}</p>
+                <p className="text-gray-700 text-lg">{project.projectDescription}</p>
                 </div>
             </div>
             <hr className="my-4" />

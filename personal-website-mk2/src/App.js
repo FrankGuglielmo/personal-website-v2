@@ -6,6 +6,7 @@ import ProjectSection from './components/ProjectSection';
 import DetailedProject from './components/DetailedProject';
 import TechnologySection from './components/TechnologySection';
 import WorkSection from './components/WorkSection';
+import Footer from './components/Footer';
 // import Footer from './components/Footer';
 import { ProjectData } from './data/projectsData';
 
@@ -45,6 +46,7 @@ const App = () => {
             <ProjectSection projects={ProjectData} id="projects" />
             <WorkSection/>
             <TechnologySection/>
+            <Footer />
           </div>
         } />
         <Route path="/projects/:projectName" element={

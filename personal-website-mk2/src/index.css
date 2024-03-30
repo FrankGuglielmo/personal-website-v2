@@ -84,3 +84,50 @@ code {
   50% { border-color: black; }
 }
 
+.footer {
+  background-image: url('./images/headerGradient.crop.png'); /* Path to your image */
+  background-size: cover;
+  background-position: center;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px; /* Adjust the gap as needed */
+}
+
+.footer-links a {
+  color: white; /* White text for links */
+  text-decoration: none;
+}
+
+/* Styles for GitHub icon */
+.github-icon:hover, .github-icon:focus {
+  color: #333; /* GitHub hover color */
+}
+
+/* Styles for LinkedIn icon */
+.linkedin-icon:hover, .linkedin-icon:focus {
+  color: #0077B5; /* LinkedIn hover color */
+}
+
+/* Smooth color transition for icons */
+.footer-links a svg {
+  transition: color 0.3s;
+}
+
+/* Additional media query for responsiveness if needed */
+@media (max-width: 600px) {
+  .footer-content {
+    flex-direction: column;
+    gap: 20px;
+  }
+}

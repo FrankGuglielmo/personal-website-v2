@@ -22,9 +22,9 @@ const WorkSection = () => {
                         </div>
                             <div className="pl-24 pr-6 pb-6">
                                 <ul className="list-disc space-y-2 list-inside mt-2 text-gray-700">
-                                    {job.roles[0].description.map((description) => (
-                                        <li> {description}</li>
-                                    ))}
+                                {job.roles[0].description.map((description, index) => (
+                                    <li key={`${job.id}-${index}`}>{description}</li>
+                                ))}
                                 </ul>
                             <p className="text-right text-gray-500 italic pt-4">{job.roles[0].startDate} - {job.roles[0].endDate}</p>
                             </div>
@@ -44,8 +44,8 @@ const WorkSection = () => {
                                         <h4 className="text-xl font-semibold">{role.title}</h4>
                                         <p className="text-gray-500">{role.startDate} - {role.endDate}</p>
                                         <ul className="list-disc space-y-2 list-inside mt-2 text-gray-700">
-                                            {role.description.map((description) => (
-                                                <li>{description}</li>
+                                            {role.description.map((description, index) => (
+                                                <li key={index}>{description}</li>
                                             ))}
                                         </ul>
                                     </div>

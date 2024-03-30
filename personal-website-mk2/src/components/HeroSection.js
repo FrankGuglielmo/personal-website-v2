@@ -24,7 +24,7 @@ export default function HeroSection() {
 
 
   return (
-  <section> {/* Adjust height as necessary */}
+  <section id='Hero'> {/* Adjust height as necessary */}
     <div className="relative min-h-screen">
       {/* Background image */}
       <img src={BackgroundImage} alt="Background" className="absolute inset-0 w-full h-4/5 object-cover z-0" /> {/* Adjust height as needed */}
@@ -35,8 +35,6 @@ export default function HeroSection() {
       <div className="absolute left-40 bottom-5 z-20" style={{width: '30%', opacity:"50%"}}> {/* Adjust width and height as necessary */}
                 <img src={USFLogo} alt="Frank" className="w-full h-full object-cover" />
         </div>
-
-
       <div className="absolute right-20 bottom-20 z-20" style={{width: '30%'}}> {/* Adjust width and height as necessary */}
           <img src={ProfilePicture} alt="Frank" className="w-full h-full object-cover" />
         </div>

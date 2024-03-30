@@ -4,6 +4,11 @@
   transition: 0.3s;
 }
 
+.hover-effect:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s ease-in-out;
+}
+
 .tech-item {
   /* border: 1.5px solid rgb(183, 180, 180); */
   color: black;
