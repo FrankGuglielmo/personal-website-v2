@@ -67,6 +67,10 @@ code {
   .jobDetails {
     flex-basis: auto; /* Details take the full width on small screens */
   }
+
+  .svg-container {
+    width: 100%;
+  }
 }
 
 #typing {

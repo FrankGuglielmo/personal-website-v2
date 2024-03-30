@@ -1,0 +1,52 @@
+@media (max-width: 768px) {
+    .mobile-hidden {
+        display: none;
+    }
+    
+    .optimized-mobile {
+        /* Adjust the layout for smaller screens */
+        text-align: center;
+    
+        /* Center and resize images */
+        img {
+          position: relative; /* Change from absolute to relative */
+          width: 50%; /* Smaller width for images */
+          height: auto; /* Adjust height automatically */
+          left: 0; /* Reset left position */
+          bottom: 0; /* Reset bottom position */
+          opacity: 1; /* Adjust opacity if needed */
+        }
+    
+        /* Adjust content */
+        .container {
+          flex-direction: column;
+          padding: 20px; /* Add padding for smaller screens */
+        }
+    
+        /* Resize text */
+        h1.text-7xl {
+          font-size: 3rem; /* Smaller font size */
+        }
+    
+        p.text-xl {
+          font-size: 1rem; /* Smaller font size */
+        }
+      }
+
+      .optimized-mobile-2 {
+        /* Width The size of the screen */
+        width: 100%;
+      }
+
+      .optimized-mobile-3 {
+        padding-top: 20px;
+      }
+    /* Adjust NavBar and other elements as needed */
+  }
+/* Normal laptop screen */
+@media (min-width: 768px) {
+    .computer-hidden {
+        display: none;
+    }
+    /* Adjust NavBar and other elements as needed */
+  }
