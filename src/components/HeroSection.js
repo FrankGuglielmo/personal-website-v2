@@ -27,16 +27,16 @@ export default function HeroSection() {
   <section id='Hero'> {/* Adjust height as necessary */}
     <div className="relative min-h-screen">
       {/* Background image */}
-      <img src={BackgroundImage} alt="Background" className="absolute inset-0 w-full h-4/5 object-cover z-0" /> {/* Adjust height as needed */}
+      <img src={BackgroundImage} alt="Background Gradient" className="absolute inset-0 w-full h-4/5 object-cover z-0" /> {/* Adjust height as needed */}
 
       {/* Header gradient image */}
-      <img src={HeaderGradient} alt="Foreground" className="absolute bottom-0 w-full h-1/5 object-cover z-0" /> {/* Adjust height as needed */}
+      <img src={HeaderGradient} alt="header Gradient" className="absolute bottom-0 w-full h-1/5 object-cover z-0" /> {/* Adjust height as needed */}
       {/* Input the usflogo.png on top of the header gradient */}
       <div className="absolute left-40 bottom-5 z-20 mobile-hidden" style={{width: '30%', opacity:"50%"}}> {/* Adjust width and height as necessary */}
-                <img src={USFLogo} alt="Frank" className="w-full h-full object-cover" />
+                <img src={USFLogo} alt="University of San Francisco Logo" className="w-full h-full object-cover" />
         </div>
       <div className="absolute right-20 bottom-20 z-20 mobile-hidden" style={{width: '30%'}}> {/* Adjust width and height as necessary */}
-          <img src={ProfilePicture} alt="Frank" className="w-full h-full object-cover" />
+          <img src={ProfilePicture} alt="Frank Guglielmo Headshot" className="w-full h-full object-cover" />
         </div>
 
       {/* Content */}
@@ -46,7 +46,7 @@ export default function HeroSection() {
           {/* Navigation */}
           <NavBar />
           <div className="flex items-center justify-center computer-hidden"> {/* Adjust width and height as necessary */}
-              <img src={ProfilePicture} alt="Frank" className="w-full h-full object-cover" />
+              <img src={ProfilePicture} alt="Frank Guglielmo Profile Picture" className="w-full h-full object-cover" />
             </div>
           {/* Text content */}
           <div className="lg:w-1/2 pt-20 optimized-mobile-3">
