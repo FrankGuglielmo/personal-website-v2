@@ -23,7 +23,7 @@ const DetailedProject = () => {
             <div className="flex flex-wrap">
                 <div className="w-full sm:w-1/3 p-2">
                     {project.url ? (
-                        <Link to={project.url}>
+                        <Link to={project.url} target='_blank'>
                         <img src={project.imageSrc}  style={{ width: '333px', height: '333px', objectFit: 'cover' }} alt={`${project.title} Thumbnail`} className="rounded-lg hover-effect" />
                         </Link>
                     ) : (

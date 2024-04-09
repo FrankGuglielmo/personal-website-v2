@@ -46,7 +46,7 @@ export default function HeroSection() {
           {/* Navigation */}
           <NavBar />
           <div className="flex items-center justify-center computer-hidden"> {/* Adjust width and height as necessary */}
-              <img src={ProfilePicture} alt="Frank Guglielmo Profile Picture" className="w-full h-full object-cover" />
+              <img src={ProfilePicture} alt="Frank Guglielmo" className="w-full h-full object-cover" />
             </div>
           {/* Text content */}
           <div className="lg:w-1/2 pt-20 optimized-mobile-3">
@@ -55,10 +55,10 @@ export default function HeroSection() {
               I'm a Software Engineer studying at the University of San Francisco. Welcome to my site! Here you can find some of the projects I've worked on, my work experience, as well as the technologies I'm most familiar with.
             </p>
             <div className="mt-8 flex justify-center items-center">
-              <a href='/FrankGuglielmoResume.pdf' className="inline-block bg-yellow-400 text-purple-700 font-semibold px-8 py-3 rounded-lg mr-4 hover:bg-yellow-300 transition duration-300">
+              <a href='/FrankGuglielmoResume.pdf' className="inline-block bg-transparent border-2 border-white text-white font-semibold px-8 py-3 rounded-lg mr-4 hover:bg-white hover:text-black transition duration-300">
                 Resume
               </a>
-              <a href="https://www.linkedin.com/in/fdguglielmo/" target="_blank" className="inline-block bg-transparent border-2 border-white text-white font-semibold px-8 py-3 rounded-lg hover:bg-white hover:text-purple-700 transition duration-300" rel="noreferrer">Connect With Me!</a>
+              <a href="https://www.linkedin.com/in/fdguglielmo/" target="_blank" className="inline-block bg-transparent border-2 border-white text-white font-semibold px-8 py-3 rounded-lg hover:bg-white hover:text-black transition duration-300" rel="noreferrer">Connect With Me!</a>
             </div>
           </div>
         </div>

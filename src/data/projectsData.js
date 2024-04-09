@@ -60,5 +60,18 @@ export const ProjectData = [
       company: require("../images/usflogo.png"),
       awards: "",
       link: "googs"
-   } 
+   }, 
+   {
+      id: 6,
+      imageSrc: require("../images/clixz_logo_white.png"),
+      title: "Clixz",
+      cardDescription: "A website where users can post photos from recent events they went to and discover new activities in their area. \"Clixz\" won 1st place at the USF DonsHack hackathon in 2024.",
+      projectDescription: "A full-stack web application that allows user to discover and share photos from public events in their area.",
+      blurb: "Hosted using Vercel at Clixz.org, the frontend of this application was built using React.js. It communicates with a dockerized Django server that leverages an AWS S3 bucket for media storage. Users can make requests to the server by uploading photos or creating events via the various pages on the site. One interesting feature is that Clixz leverages Auth0 for LogIn and SignUp, ensuring user data is secure.",
+      technologies: ["React.js", "Django", "AWS S3", "Clouflare", "Docker", "HTML", "CSS", "Vercel", "Auth0"],
+      company: require("../images/usflogo.png"),
+      awards: require("../images/1stplacehackathon.png"),
+      link : "clixz",
+      url: "https://clixz.org"
+   }
 ];
