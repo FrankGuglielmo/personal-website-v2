@@ -10,7 +10,6 @@ import Footer from './components/Footer';
 // import Footer from './components/Footer';
 import { ProjectData } from './data/projectsData';
 import { Analytics } from "@vercel/analytics/react"
-import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const App = () => {
 
@@ -42,7 +41,6 @@ const App = () => {
   return (
     <Router>
       <Analytics />
-      <SpeedInsights />
       <Routes>
         <Route path="/" element={
           <div className="App">
