@@ -10,6 +10,7 @@ import Footer from './components/Footer';
 // import Footer from './components/Footer';
 import { ProjectData } from './data/projectsData';
 import { Analytics } from "@vercel/analytics/react"
+import SupportPage from './components/LibrarioSupport';
 
 const App = () => {
 
@@ -53,6 +54,10 @@ const App = () => {
         } />
         <Route path="/projects/:projectName" element={
           <DetailedProject />
+        } />
+        
+        <Route path="/Librario/support" element={
+          <SupportPage />
         } />
 
       </Routes>
