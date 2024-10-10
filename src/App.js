@@ -11,6 +11,7 @@ import Footer from './components/Footer';
 import { ProjectData } from './data/projectsData';
 import { Analytics } from "@vercel/analytics/react"
 import SupportPage from './components/LibrarioSupport';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
 const App = () => {
 
@@ -58,6 +59,9 @@ const App = () => {
         
         <Route path="/Librario/support" element={
           <SupportPage />
+        } />
+        <Route path="/Librario/privacy" element={
+          <PrivacyPolicy />
         } />
 
       </Routes>
