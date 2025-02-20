@@ -35,19 +35,19 @@ export const workData = [
         id: 3,
         company: "University of San Francisco",
         image: require("../images/jobs/USFLogoJob.png"),
-        overallDuration: "Jan 2022 - Present",
+        overallDuration: "Jan 2022 - May 2024",
         roles: [
             {
             title: "CS 272 Teaching Assistant",
             startDate: "Aug 2023",
-            endDate: "Present",
+            endDate: "May 2024",
             type: "Part-time",
             description: ["Mentored students in using data structures & algorithms to build a full stack, web-based search engine in Java.", "Advised the development of clean, production level code by reviewing & asking students questions during office hours."]
             },
             {
             title: "Computer Science Tutor",
             startDate: "Feb 2022",
-            endDate: "Present",
+            endDate: "May 2024",
             type: "Part-time",
             description: ["Offered specialized tutoring for both undergraduate & graduate computer science students, covering diverse coursework, assignments, & project inquiries."]
             },
