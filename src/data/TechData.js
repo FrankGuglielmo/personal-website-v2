@@ -3,19 +3,19 @@ export const TechData = [
       name: "Java",
       imageUrl: require("../images/tech/JavaLogo.png"),
       color: 'none',
-      strengthLevel: 6 
+      strengthLevel: 4 
     },
     {
       name: "Python",
       imageUrl: require("../images/tech/PythonLogo.png"),
       color: 'none',
-      strengthLevel: 4
+      strengthLevel: 5
     },
     {
       name: "Swift",
       imageUrl: require("../images/tech/SwiftLogo.png"),
       color: 'none',
-      strengthLevel: 3
+      strengthLevel: 6
     },
     {
       name: "HTML",
@@ -63,6 +63,6 @@ export const TechData = [
       name: "React",
       imageUrl: require("../images/tech/reactlogo.png"),
       color: 'none',
-      strengthLevel: 3
+      strengthLevel: 5
     }
   ];

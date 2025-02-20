@@ -1,6 +1,24 @@
 export const workData = [
     {
       id: 1,
+      company: "Stealth Startup",
+      image: require("../images/jobs/stealth_startup.png"),
+      roles: [
+        {
+          title: "Software Engineer Intern",
+          startDate: "October 2024",
+          endDate: "Present",
+          type: "Internship",
+          description: [
+            "Developed a modular \"Cluster Manager\" to orchestrate multi-modal app actions (audio playback, animations, camera moves) in parallel with complex start/end conditions",
+            "Emphasized thread-safety & concurrency control to ensure smooth updates under frequent user/server events",
+            "Implemented a system for creating new users & conversations via an admin portal for regression testing & feature development"
+          ]
+        }
+      ]
+    },
+    {
+      id: 2,
       company: "Roku Inc.",
       image: require("../images/jobs/RokuLogo.png"), // Image is now at the top level
       roles: [
@@ -14,7 +32,7 @@ export const workData = [
       ],
     },
     {
-        id: 2,
+        id: 3,
         company: "University of San Francisco",
         image: require("../images/jobs/USFLogoJob.png"),
         overallDuration: "Jan 2022 - Present",
@@ -43,7 +61,7 @@ export const workData = [
         ]
         },
     {
-      id: 3,
+      id: 4,
       company: "Kodely",
       image: require("../images/jobs/KodelyLogo.png"), // Image is now at the top level
       roles: [

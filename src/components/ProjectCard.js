@@ -22,14 +22,36 @@ export default function ProjectCard({id, imageSrc, title, description, technolog
               {tech}
             </span>
           ))}
-        </div>
-        <div className="px-6 pt-2 pb-2 relative flex flex-row justify-between">  
-          {awards === "" ? <img src={company} alt="Company Logo" className="w-1/2 pb-2 pt-2" /> : <img src={company} alt="Company Logo" className="pt-2 pb-4" style={{width: "46%", height:"46%"}}/>}
-          {awards !== "" && <img src={awards} alt="Awards" className="pb-4" style={{width: "45%"}}/>}
-        </div>
+        </div>  
+        <div className="px-6 pt-2 pb-2 relative flex flex-row justify-between">
+          {/* Render the company image only if `company` is truthy (not empty). */}
+          {company && company !== "" && (
+            awards === "" ? (
+              <img
+                src={company}
+                alt="Company Logo"
+                className="w-1/2 pb-2 pt-2"
+              />
+            ) : (
+              <img
+                src={company}
+                alt="Company Logo"
+                className="pt-2 pb-4"
+                style={{ width: "46%", height: "46%" }}
+              />
+            )
+          )}
 
-
-            
+          {/* Render the awards image only if `awards` is truthy (not empty). */}
+          {awards && awards !== "" && (
+            <img
+              src={awards}
+              alt="Awards"
+              className="pb-4"
+              style={{ width: "45%" }}
+            />
+          )}
+        </div>
       </div>
       </Link>
     );

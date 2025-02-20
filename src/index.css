@@ -89,7 +89,7 @@ code {
 }
 
 .footer {
-  background-image: url('./images/headerGradient.crop.png'); /* Path to your image */
+  background-image: url('./images/hero/headerGradient.crop.webp'); /* Path to your image */
   background-size: cover;
   background-position: center;
   padding-top: 20px;
