@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 // import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ProjectSection from './components/ProjectSection';
@@ -12,9 +12,32 @@ import { ProjectData } from './data/projectsData';
 import { Analytics } from "@vercel/analytics/react"
 import SupportPage from './components/LibrarioSupport';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import BlogPage from './components/BlogPage';
+import BlogPost from './components/BlogPost';
+
+// Custom hook to scroll to a hash fragment
+const ScrollToHashFragment = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // If hash exists in the URL
+    if (location.hash) {
+      // Get the element with that ID
+      const element = document.getElementById(location.hash.substring(1));
+      if (element) {
+        // Scroll to the element
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else if (location.pathname === '/') {
+      // Scroll to top for home page without hash
+      window.scrollTo(0, 0);
+    }
+  }, [location]);
+  
+  return null;
+};
 
 const App = () => {
-
   useEffect(() => {
     // Attach smooth scroll to all anchor tags
     const smoothScrollAnchors = document.querySelectorAll('a[href^="#"]');
@@ -43,6 +66,7 @@ const App = () => {
   return (
     <Router>
       <Analytics />
+      <ScrollToHashFragment />
       <Routes>
         <Route path="/" element={
           <div className="App">
@@ -62,6 +86,14 @@ const App = () => {
         } />
         <Route path="/Librario/privacy" element={
           <PrivacyPolicy />
+        } />
+        
+        <Route path="/blog" element={
+          <BlogPage />
+        } />
+        
+        <Route path="/blog/:postId" element={
+          <BlogPost />
         } />
 
       </Routes>
