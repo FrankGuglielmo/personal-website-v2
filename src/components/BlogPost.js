@@ -22,7 +22,7 @@ const BlogPost = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Background header */}
-      <div className="bg-gradient-to-b from-gray-900 to-gray-800 h-32 w-full absolute top-0 z-0"></div>
+      <div className="bg-gradient-to-b from-gray-900 to-gray-800 h-24 w-full absolute top-0 z-0"></div>
       
       {/* Navigation */}
       <NavBar />
@@ -51,7 +51,10 @@ const BlogPost = () => {
           <article className="blog-post">
             <header className="blog-post-header">
               <h1 className="blog-post-title">{post.title}</h1>
-              <p className="blog-post-date">{post.date}</p>
+              <div className="blog-post-meta" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <p className="blog-post-date">{post.date}</p>
+                <p className="blog-post-readLength">{post.readLength}</p>
+              </div>
             </header>
             
             <div 

@@ -27,6 +27,7 @@ const BlogPage = () => {
                 id={post.id}
                 title={post.title}
                 date={post.date}
+                readLength={post.readLength}
                 image={post.image}
                 summary={post.summary}
               />
