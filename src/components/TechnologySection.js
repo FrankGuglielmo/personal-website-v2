@@ -12,7 +12,11 @@ const getViewDimensions = () => {
   };
 };
 
-const BASE_SPEED = 0.25; // Constant speed for all bubbles
+// Base speed with mobile adjustment (slower on mobile)
+const getBaseSpeed = () => {
+  const isMobile = window.innerWidth <= 768;
+  return isMobile ? 0.15 : 0.25; // 40% slower on mobile
+};
 
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
@@ -27,8 +31,9 @@ const generateBubbles = (dimensions) => {
     let vx = (Math.random() - 0.5);
     let vy = (Math.random() - 0.5);
     const mag = Math.sqrt(vx * vx + vy * vy);
-    vx = (vx / mag) * BASE_SPEED;
-    vy = (vy / mag) * BASE_SPEED;
+    const speed = getBaseSpeed();
+    vx = (vx / mag) * speed;
+    vy = (vy / mag) * speed;
     return {
       x: getRandomInt(radius, dimensions.width - radius),
       y: getRandomInt(radius, dimensions.height - radius),
@@ -105,7 +110,9 @@ const TechnologySection = () => {
           const angle = Math.atan2(dy, dx);
           
           // Apply a collision impulse scaled by average bubble size.
-          const collisionForce = 0.05 * ((bubble1.radius + bubble2.radius) / 6);
+          // Reduce collision force on mobile for smaller explosions
+          const mobileFactor = window.innerWidth <= 768 ? 0.2 : 1; // 50% smaller force on mobile
+          const collisionForce = 0.05 * ((bubble1.radius + bubble2.radius) / 6) * mobileFactor;
           const forceX = collisionForce * Math.cos(angle);
           const forceY = collisionForce * Math.sin(angle);
           bubble1.vx -= forceX;
@@ -132,9 +139,10 @@ const TechnologySection = () => {
         vy = (Math.random() - 0.5);
         speed = Math.sqrt(vx * vx + vy * vy);
       }
-      let newSpeed = speed > BASE_SPEED 
-        ? speed - (speed - BASE_SPEED) * decayRate 
-        : speed + (BASE_SPEED - speed) * decayRate;
+      const baseSpeed = getBaseSpeed();
+      let newSpeed = speed > baseSpeed
+        ? speed - (speed - baseSpeed) * decayRate 
+        : speed + (baseSpeed - speed) * decayRate;
       
       return {
         ...bubble,
