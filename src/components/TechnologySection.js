@@ -2,35 +2,64 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TechData } from '../data/TechData';
 import '../index.css';
 
-const width = window.innerWidth / 1.25;
-const height = window.innerHeight / 1.25;
+// Use a function for dimensions to allow for responsive updates
+const getViewDimensions = () => {
+  // Make it more compact on mobile
+  const isMobile = window.innerWidth <= 768;
+  return {
+    width: isMobile ? window.innerWidth * 0.95 : window.innerWidth / 1.25,
+    height: isMobile ? window.innerHeight * 0.6 : window.innerHeight / 1.25,
+  };
+};
+
 const BASE_SPEED = 0.25; // Constant speed for all bubbles
 
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
-const techBubbles = TechData.map(item => {
-  const radius = item.strengthLevel * 15 + 15;
-  let vx = (Math.random() - 0.5);
-  let vy = (Math.random() - 0.5);
-  const mag = Math.sqrt(vx * vx + vy * vy);
-  vx = (vx / mag) * BASE_SPEED;
-  vy = (vy / mag) * BASE_SPEED;
-  return {
-    x: getRandomInt(radius, width - radius),
-    y: getRandomInt(radius, height - radius),
-    radius,
-    content: item.imageUrl,
-    vx,
-    vy,
-  };
-});
+// Function to generate bubbles with current dimensions
+const generateBubbles = (dimensions) => {
+  return TechData.map(item => {
+    // Scale radius based on screen size
+    const scaleFactor = window.innerWidth <= 768 ? 0.7 : 1;
+    const radius = (item.strengthLevel * 15 + 15) * scaleFactor;
+    let vx = (Math.random() - 0.5);
+    let vy = (Math.random() - 0.5);
+    const mag = Math.sqrt(vx * vx + vy * vy);
+    vx = (vx / mag) * BASE_SPEED;
+    vy = (vy / mag) * BASE_SPEED;
+    return {
+      x: getRandomInt(radius, dimensions.width - radius),
+      y: getRandomInt(radius, dimensions.height - radius),
+      radius,
+      content: item.imageUrl,
+      vx,
+      vy,
+    };
+  });
+};
 
 const TechnologySection = () => {
-  const [bubbles, setBubbles] = useState(techBubbles);
+  const [dimensions, setDimensions] = useState(getViewDimensions());
+  const [bubbles, setBubbles] = useState(() => generateBubbles(dimensions));
   const svgRef = useRef();
-  const bubblesRef = useRef(techBubbles);
+  const bubblesRef = useRef(bubbles);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const newDimensions = getViewDimensions();
+      setDimensions(newDimensions);
+      
+      // Reset bubbles when window size changes significantly
+      bubblesRef.current = generateBubbles(newDimensions);
+      setBubbles(bubblesRef.current);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const updateBubbles = useCallback(() => {
     // Update positions and handle boundary collisions.
@@ -44,8 +73,8 @@ const TechnologySection = () => {
       if (x < radius) {
         x = radius;
         vx = Math.abs(vx);
-      } else if (x > width - radius) {
-        x = width - radius;
+      } else if (x > dimensions.width - radius) {
+        x = dimensions.width - radius;
         vx = -Math.abs(vx);
       }
       
@@ -53,8 +82,8 @@ const TechnologySection = () => {
       if (y < radius) {
         y = radius;
         vy = Math.abs(vy);
-      } else if (y > height - radius) {
-        y = height - radius;
+      } else if (y > dimensions.height - radius) {
+        y = dimensions.height - radius;
         vy = -Math.abs(vy);
       }
       
@@ -117,19 +146,19 @@ const TechnologySection = () => {
     bubblesRef.current = newBubbles;
     setBubbles(newBubbles);
     requestAnimationFrame(updateBubbles);
-  }, []);
+  }, [dimensions]);
   
   useEffect(() => {
     requestAnimationFrame(updateBubbles);
   }, [updateBubbles]);
 
   return (
-    <section id='technology'>
-      <h2 className="text-3xl font-bold text-center text-gray-800">
+    <section id='technology' className="py-8">
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
         Technologies I've Worked With
       </h2>
-      <div className="svg-container rounded-xl shadow-lg">
-        <svg ref={svgRef} width={width} height={height}>
+      <div className="svg-container rounded-xl shadow-lg mx-auto" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+        <svg ref={svgRef} width={dimensions.width} height={dimensions.height}>
           {bubbles.map((bubble, index) => (
             <g key={index}>
               <clipPath id={`clip-circle-${index}`}>

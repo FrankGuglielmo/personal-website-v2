@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 // import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ProjectSection from './components/ProjectSection';
