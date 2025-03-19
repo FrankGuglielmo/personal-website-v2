@@ -41,12 +41,38 @@
       .optimized-mobile-3 {
         padding-top: 20px;
       }
-    /* Adjust NavBar and other elements as needed */
-  }
+    
+    /* Mobile menu styling */
+    nav button.computer-hidden {
+      display: block;
+      cursor: pointer;
+    }
+    
+    /* Mobile dropdown menu */
+    nav .fixed {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+    }
+    
+    /* Project cards for mobile */
+    #projects .flex-wrap > div {
+      width: 100%;
+    }
+    
+    /* Animations for mobile menu */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    nav .fixed {
+      animation: slideDown 0.3s ease forwards;
+    }
+}
+
 /* Normal laptop screen */
 @media (min-width: 768px) {
     .computer-hidden {
         display: none;
     }
-    /* Adjust NavBar and other elements as needed */
-  }
+}

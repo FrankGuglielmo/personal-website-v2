@@ -9,21 +9,22 @@ export default function ProjectSection() {
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
           Featured Projects
         </h2>
-        <div className="flex flex-wrap justify-center items-center -mx-4">
-            {ProjectData.map((project) => (
-                <div className="p-4" key={project.id} style={{ minWidth: '300px', maxWidth: '1/3' }}> {/* Adjust padding and width as needed */}
-                <ProjectCard id={project.id}
-                  key={project.id}
-                  imageSrc={project.imageSrc}
-                  title={project.title}
-                  description={project.cardDescription}
-                  technologies={project.technologies}
-                  company={project.company}
-                  awards={project.awards}
-                  link={project.link}
-                />
-              </div>
-            ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {ProjectData.map((project) => (
+            <div className="flex justify-center" key={project.id}>
+              <ProjectCard 
+                id={project.id}
+                key={project.id}
+                imageSrc={project.imageSrc}
+                title={project.title}
+                description={project.cardDescription}
+                technologies={project.technologies}
+                company={project.company}
+                awards={project.awards}
+                link={project.link}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </section>
