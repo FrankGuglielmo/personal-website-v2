@@ -14,6 +14,9 @@ import SupportPage from './components/LibrarioSupport';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import BlogPage from './components/BlogPage';
 import BlogPost from './components/BlogPost';
+import AtomHome from './components/AtomHome';
+import AtomPrivacyPolicy from './components/AtomPrivacyPolicy';
+import AtomSupport from './components/AtomSupport';
 
 // Custom hook to scroll to a hash fragment
 const ScrollToHashFragment = () => {
@@ -86,6 +89,16 @@ const App = () => {
         } />
         <Route path="/Librario/privacy" element={
           <PrivacyPolicy />
+        } />
+        
+        <Route path="/Atom" element={
+          <AtomHome />
+        } />
+        <Route path="/Atom/privacy" element={
+          <AtomPrivacyPolicy />
+        } />
+        <Route path="/Atom/support" element={
+          <AtomSupport />
         } />
         
         <Route path="/blog" element={
