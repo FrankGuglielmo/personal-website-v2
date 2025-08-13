@@ -17,6 +17,7 @@ import BlogPost from './components/BlogPost';
 import AtomHome from './components/AtomHome';
 import AtomPrivacyPolicy from './components/AtomPrivacyPolicy';
 import AtomSupport from './components/AtomSupport';
+import Playground from './pages/Playground';
 
 // Custom hook to scroll to a hash fragment
 const ScrollToHashFragment = () => {
@@ -107,6 +108,10 @@ const App = () => {
         
         <Route path="/blog/:postId" element={
           <BlogPost />
+        } />
+
+        <Route path="/playground" element={
+          <Playground />
         } />
 
       </Routes>

@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/* Tokens aligned with CRA site */
+:root {
+  --color-bg: 210 20% 98%;
+  --color-surface: 0 0% 100%;
+  --color-text: 224 71% 4%;
+  --color-muted: 220 9% 46%;
+  --color-accent: 221 83% 53%;
+  --color-border: 220 13% 91%;
+
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: 222 47% 8%;
+    --color-surface: 222 25% 12%;
+    --color-text: 210 40% 98%;
+    --color-muted: 217 10% 65%;
+    --color-accent: 221 83% 53%;
+    --color-border: 217 16% 22%;
+  }
+}
+
+/* Explicit class for manual toggling */
+.dark {
+  color-scheme: dark;
+  --color-bg: 222 47% 8%;
+  --color-surface: 222 25% 12%;
+  --color-text: 210 40% 98%;
+  --color-muted: 217 10% 65%;
+  --color-accent: 221 83% 53%;
+  --color-border: 217 16% 22%;
+}
+
+.light {
+  color-scheme: light;
+  --color-bg: 210 20% 98%;
+  --color-surface: 0 0% 100%;
+  --color-text: 224 71% 4%;
+  --color-muted: 220 9% 46%;
+  --color-accent: 221 83% 53%;
+  --color-border: 220 13% 91%;
+}
+
+@utility glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08));
+  background-clip: padding-box;
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.25) inset, 0 8px 30px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+/* Tailwind v4 token aliases to mirror CRA's tailwind.config.js */
+@theme inline {
+  --color-background: hsl(var(--color-bg));
+  --color-surface: hsl(var(--color-surface));
+  --color-text: hsl(var(--color-text));
+  --color-muted: hsl(var(--color-muted));
+  --color-accent: hsl(var(--color-accent));
+  --color-border: hsl(var(--color-border));
+}
+
+@theme inline {
+  --color-background: hsl(var(--color-bg));
+  --color-surface: hsl(var(--color-surface));
+  --color-text: hsl(var(--color-text));
+  --color-muted: hsl(var(--color-muted));
+  --color-accent: hsl(var(--color-accent));
+  --color-border: hsl(var(--color-border));
+}
+
+body {
+  background: hsl(var(--color-bg));
+  color: hsl(var(--color-text));
+}
+
+/* Density utilities */
+.pad-compact { padding: 12px; }
+.pad-comfortable { padding: 20px; }
+.pad-spacious { padding: 28px; }
+
+/* Line clamp utilities */
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Liquid Glass enhanced style */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  background-clip: padding-box;
+}
+
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(59,130,246,0.7),
+    rgba(236,72,153,0.7),
+    rgba(56,189,248,0.7),
+    rgba(59,130,246,0.7)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: blur(0.2px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.liquid-glass::after {
+  content: "";
+  position: absolute;
+  inset: -2% -4% -4% -2%;
+  border-radius: inherit;
+  background:
+    radial-gradient(20% 25% at 20% 20%, rgba(59,130,246,0.15), transparent 45%),
+    radial-gradient(15% 30% at 60% 40%, rgba(236,72,153,0.15), transparent 45%),
+    radial-gradient(25% 30% at 50% 70%, rgba(56,189,248,0.12), transparent 50%);
+  filter: blur(10px) saturate(130%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.dark .liquid-glass::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(96,165,250,0.7),
+    rgba(244,114,182,0.7),
+    rgba(103,232,249,0.7),
+    rgba(96,165,250,0.7)
+  );
+}
+
+/* Pill variant (stronger inner bloom, perfect rounding) */
+.liquid-pill {
+  border-radius: 9999px;
+}
+
+.liquid-pill::after {
+  content: "";
+  position: absolute;
+  inset: -6% -10% -10% -6%;
+  border-radius: inherit;
+  background:
+    radial-gradient(50% 70% at 20% 50%, rgba(59,130,246,0.18), transparent 72%),
+    radial-gradient(55% 80% at 80% 50%, rgba(236,72,153,0.18), transparent 72%),
+    radial-gradient(65% 50% at 50% 110%, rgba(56,189,248,0.14), transparent 78%);
+  filter: blur(12px) saturate(140%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Temporarily disable internal bloom/glow; keep rainbow border */
+.liquid-glass::after,
+.liquid-pill::after {
+  content: none;
+}
