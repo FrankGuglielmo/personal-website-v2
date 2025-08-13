@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased bg-[--color-background] text-[--color-text]">
+      <body className="antialiased text-[--color-text]">
         <Script id="theme-init" strategy="beforeInteractive">
           {`
             (function(){
@@ -29,8 +30,11 @@ export default function RootLayout({
             })();
           `}
         </Script>
-        <Navbar />
-        {children}
+        <Sidebar />
+        <div className="site-content lg:pl-[22rem]">
+          <Navbar />
+          {children}
+        </div>
       </body>
     </html>
   );

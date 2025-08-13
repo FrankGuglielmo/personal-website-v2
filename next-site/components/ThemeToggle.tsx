@@ -20,6 +20,8 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
     const next = !isDark;
     setIsDark(next);
     try {
+      // Add transient animation class to enable smooth cross-fade
+      document.documentElement.classList.add("theme-animate");
       if (next) {
         document.documentElement.classList.remove("light");
         document.documentElement.classList.add("dark");
@@ -29,6 +31,10 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
         document.documentElement.classList.add("light");
         localStorage.setItem("theme", "light");
       }
+      // Remove the animation class after the transition window
+      window.setTimeout(() => {
+        document.documentElement.classList.remove("theme-animate");
+      }, 350);
     } catch {}
   };
 

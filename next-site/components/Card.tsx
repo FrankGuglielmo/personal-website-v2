@@ -11,7 +11,7 @@ type Props = {
 };
 
 export default function Card({ className = "", variant = "glass", density = "comfortable", header, footer, children }: Props) {
-  const base = variant === "glass" ? "glass liquid-glass bg-white/20 dark:bg-white/10 border border-white/40" : "bg-surface border border-border";
+  const base = variant === "glass" ? "glass liquid-glass bg-white/10 dark:bg-white/5 border" : "bg-surface border border-border";
   const pad = density === "compact" ? "pad-compact" : density === "spacious" ? "pad-spacious" : "pad-comfortable";
   return (
     <section className={twMerge("rounded-3xl", base, pad, className)}>
