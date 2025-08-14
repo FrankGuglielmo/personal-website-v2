@@ -11,7 +11,6 @@ type WeatherData = {
 };
 
 type Props = {
-  city?: string;
   lat?: number;
   lon?: number;
   className?: string;
@@ -36,15 +35,14 @@ async function fetchWeather(lat = 40.7128, lon = -74.006, signal?: AbortSignal):
   };
 }
 
-export default function WeatherGauge({ city = "NYC", lat, lon, className = "", sizePx = 84 }: Props) {
+export default function WeatherGauge({ lat, lon, className = "", sizePx = 84 }: Props) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
     fetchWeather(lat, lon, ctrl.signal)
       .then(setWeather)
-      .catch((e) => setError(String(e?.message || e)));
+      .catch(() => {});
     const id = setInterval(() => {
       fetchWeather(lat, lon, ctrl.signal).then(setWeather).catch(() => {});
     }, 10 * 60 * 1000); // refresh every 10 minutes

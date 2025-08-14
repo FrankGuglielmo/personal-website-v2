@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function RootLayout({
         <div className="site-content lg:pl-[22rem]">
           <Navbar />
           {children}
+          <Analytics />
         </div>
       </body>
     </html>

@@ -36,11 +36,17 @@ export default function Pill(props: LinkProps | ButtonProps) {
   const cls = twMerge(base, variantMap[variant], sizeMap[size].pad, sizeMap[size].text, sizeMap[size].gap, className);
 
   if ("href" in props && (props as LinkProps).href) {
-    const { href, leftIcon: _li, rightIcon: _ri, className: _cn, children: _ch, ...rest } = props as LinkProps & {
-      leftIcon?: React.ReactNode; rightIcon?: React.ReactNode; className?: string; children?: React.ReactNode;
-    };
+    const link = props as LinkProps;
     return (
-      <Link href={href} className={cls} {...rest}>
+      <Link
+        href={link.href}
+        className={cls}
+        target={link.target}
+        rel={link.rel}
+        onClick={link.onClick}
+        title={link.title}
+        download={link.download}
+      >
         {leftIcon ? <span aria-hidden>{leftIcon}</span> : null}
         <span className="font-medium">{children}</span>
         {rightIcon ? <span aria-hidden>{rightIcon}</span> : null}
@@ -48,11 +54,20 @@ export default function Pill(props: LinkProps | ButtonProps) {
     );
   }
 
-  const { href: _href, leftIcon: _li2, rightIcon: _ri2, className: _cn2, children: _ch2, ...buttonRest } = props as ButtonProps & {
-    leftIcon?: React.ReactNode; rightIcon?: React.ReactNode; className?: string; children?: React.ReactNode; href?: never;
-  };
+  const btn = props as ButtonProps;
   return (
-    <button className={cls} {...buttonRest}>
+    <button
+      className={cls}
+      type={btn.type}
+      onClick={btn.onClick}
+      disabled={btn.disabled}
+      title={btn.title}
+      autoFocus={btn.autoFocus}
+      name={btn.name}
+      value={btn.value}
+      form={btn.form}
+      formAction={btn.formAction}
+    >
       {leftIcon ? <span aria-hidden>{leftIcon}</span> : null}
       <span className="font-medium">{children}</span>
       {rightIcon ? <span aria-hidden>{rightIcon}</span> : null}

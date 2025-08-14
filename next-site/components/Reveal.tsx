@@ -17,7 +17,7 @@ type RevealProps = {
 export default function Reveal({ children, className = "", once = false, delayMs }: RevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const [hasRevealed, setHasRevealed] = useState<boolean>(false);
+  
 
   useEffect(() => {
     const node = ref.current;
@@ -28,7 +28,6 @@ export default function Reveal({ children, className = "", once = false, delayMs
         for (const entry of entries) {
           if (entry.isIntersecting) {
             setIsVisible(true);
-            setHasRevealed(true);
           } else if (!once) {
             setIsVisible(false);
           }

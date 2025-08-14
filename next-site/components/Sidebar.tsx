@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 // import ThemeToggle from "@/components/ThemeToggle";
-import ClockWidget from "@/components/ClockWidget";
 import LockCircle from "@/components/LockCircle";
 import WeatherGauge from "@/components/WeatherGauge";
 import ThemePillClient from "@/components/ThemePillClient";
