@@ -49,7 +49,7 @@
   --color-border: 220 13% 91%;
 }
 
-@utility glass {
+.glass {
   /* Apple-like frosted panel */
   background:
     linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.22));
@@ -74,24 +74,7 @@
 .nav-contrast { color: #fff; mix-blend-mode: difference; }
 .nav-backdrop-boost { backdrop-filter: blur(18px) saturate(160%) contrast(1.05) brightness(0.95); -webkit-backdrop-filter: blur(18px) saturate(160%) contrast(1.05) brightness(0.95); }
 
-/* Tailwind v4 token aliases to mirror CRA's tailwind.config.js */
-@theme inline {
-  --color-background: hsl(var(--color-bg));
-  --color-surface: hsl(var(--color-surface));
-  --color-text: hsl(var(--color-text));
-  --color-muted: hsl(var(--color-muted));
-  --color-accent: hsl(var(--color-accent));
-  --color-border: hsl(var(--color-border));
-}
-
-@theme inline {
-  --color-background: hsl(var(--color-bg));
-  --color-surface: hsl(var(--color-surface));
-  --color-text: hsl(var(--color-text));
-  --color-muted: hsl(var(--color-muted));
-  --color-accent: hsl(var(--color-accent));
-  --color-border: hsl(var(--color-border));
-}
+/* Color tokens for Tailwind v3 compatibility */
 
 html { background: transparent; }
 body { color: hsl(var(--color-text)); position: relative; }
