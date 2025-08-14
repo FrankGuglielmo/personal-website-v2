@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css";
 
 export const metadata: Metadata = {
