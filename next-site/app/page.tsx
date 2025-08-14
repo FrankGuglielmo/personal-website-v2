@@ -21,19 +21,19 @@ export default function Home() {
                 <h1 className="text-4xl md:text-6xl font-semibold mb-4">Hi, I&apos;m Frank.</h1>
                 <p className="text-muted">I&apos;m a Software Engineer and App Developer. Here you can find projects I&apos;ve worked on, my work experience, and the technologies I&apos;m most familiar with.</p>
 
-                <div className="mt-6 flex items-center gap-3">
-                  <a href="https://github.com/FrankGuglielmo" target="_blank" rel="noreferrer" className="liquid-icon" aria-label="GitHub">
+                <div className="mt-6 hidden md:flex items-center gap-3">
+                  <a href="https://github.com/FrankGuglielmo" target="_blank" rel="noreferrer" className="liquid-icon icon-github" aria-label="GitHub">
                     <IoLogoGithub />
                   </a>
-                  <a href="https://www.linkedin.com/in/fdguglielmo/" target="_blank" rel="noreferrer" className="liquid-icon" aria-label="LinkedIn">
-                    <FaLinkedin />
-                  </a>
-                  <a href="https://app.joinhandshake.com/profiles/frank" target="_blank" rel="noreferrer" className="liquid-icon" aria-label="Handshake">
+                  <a href="https://app.joinhandshake.com/profiles/frank" target="_blank" rel="noreferrer" className="liquid-icon icon-handshake" aria-label="Handshake">
                     <SiHandshake />
+                  </a>
+                  <a href="https://www.linkedin.com/in/fdguglielmo/" target="_blank" rel="noreferrer" className="liquid-icon icon-linkedin" aria-label="LinkedIn">
+                    <FaLinkedin />
                   </a>
                 </div>
 
-                <div className="mt-6 max-w-sm">
+                <div className="mt-6 max-w-sm hidden md:block">
                   <ResumeWidget />
                 </div>
               </div>
@@ -48,6 +48,29 @@ export default function Home() {
                   sizes="(min-width: 768px) 28rem, 16rem"
                   priority
                 />
+              </div>
+              {/* Mobile-only icon row + Resume button below the photo */}
+              <div className="md:hidden mt-4 flex items-center justify-center gap-3">
+                <a href="https://github.com/FrankGuglielmo" target="_blank" rel="noreferrer" className="liquid-icon icon-github" aria-label="GitHub">
+                  <IoLogoGithub />
+                </a>
+                <a href="https://app.joinhandshake.com/profiles/frank" target="_blank" rel="noreferrer" className="liquid-icon icon-handshake" aria-label="Handshake">
+                  <SiHandshake />
+                </a>
+                <a href="https://www.linkedin.com/in/fdguglielmo/" target="_blank" rel="noreferrer" className="liquid-icon icon-linkedin" aria-label="LinkedIn">
+                  <FaLinkedin />
+                </a>
+                <a
+                  href="/FrankGuglielmoResume-15.pdf"
+                  target="_blank"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/80 text-white border border-white/15 shadow-md shadow-black/30 backdrop-blur-sm hover:bg-black/70 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors"
+                  aria-label="Resume"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6zm1 7V4.5L19.5 10H15zM8 13h8v2H8v-2zm0 4h8v2H8v-2z"/>
+                  </svg>
+                  <span className="text-sm font-medium">Resume</span>
+                </a>
               </div>
             </div>
           </Card>

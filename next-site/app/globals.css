@@ -321,6 +321,22 @@ body::after {
     conic-gradient(from 210deg at 50% 40%, rgba(96,165,250,0.14), rgba(244,114,182,0.14), rgba(103,232,249,0.14), rgba(96,165,250,0.14));
 }
 
+/* Reveal-on-scroll base + states */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
+}
+.reveal.reveal-in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { transition: none; transform: none; opacity: 1; }
+}
+
 /* Liquid glass circular icon button */
 .liquid-icon {
   position: relative;
@@ -365,4 +381,28 @@ body::after {
   border-color: rgba(255,255,255,0.28);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 10px 18px rgba(0,0,0,0.35);
 }
+
+/* Lock screen style circle widget */
+.circle-widget,
+.lock-circle {
+  position: relative;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.dark .circle-widget,
+.dark .lock-circle {
+  background: radial-gradient(120% 120% at -10% -10%, rgba(255,255,255,0.16), rgba(255,255,255,0.06)),
+              rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
+}
+
+/* Social brand icon color utilities */
+.icon-github { color: #181717; }
+.dark .icon-github { color: #F0F6FC; }
+.icon-linkedin { color: #0A66C2; }
+.dark .icon-linkedin { color: #70B5F9; }
+.icon-handshake { color: #052228; }
+.dark .icon-handshake { color: #D4FB54; }
 
