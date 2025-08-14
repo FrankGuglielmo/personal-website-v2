@@ -200,13 +200,13 @@ body::after {
 
 /* Light image layer (default visible) */
 body::before {
-  background-image: url('./images/lightmode-background.webp');
+  background-image: url('/images/lightmode-background.webp');
   opacity: 1;
 }
 
 /* Dark image layer */
 body::after {
-  background-image: url('./images/darkmode-background.webp');
+  background-image: url('/images/darkmode-background.webp');
 }
 
 /* Respect system preference when no explicit class is present */

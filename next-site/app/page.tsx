@@ -1,5 +1,4 @@
 import Image from "next/image";
-import headshot from "@/app/images/headshot-no-bg.png";
 import Card from "@/components/Card";
 import ResumeWidget from "@/components/ResumeWidget";
 import { IoLogoGithub } from "react-icons/io";
@@ -40,7 +39,7 @@ export default function Home() {
 
               <div className="mx-auto portrait-halo rounded-[28px] overflow-hidden max-w-xs md:max-w-sm lg:max-w-md">
                 <Image
-                  src={headshot}
+                  src="/images/headshot-no-bg.png"
                   alt="Frank Guglielmo"
                   width={640}
                   height={800}
