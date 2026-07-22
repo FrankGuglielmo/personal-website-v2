@@ -17,6 +17,35 @@ export type WorkItem = {
 export const workItems: WorkItem[] = [
   {
     id: 1,
+    company: "Handshake",
+    imageSrc: "/images/handshake-logo.jpg",
+    overallDuration: "May 2025 - Present",
+    roles: [
+      {
+        title: "Forward Deployed Engineer",
+        startDate: "Aug 2025",
+        endDate: "Present",
+        type: "Full-time",
+        description: [
+          "Owned a scaling lane across task architecture, environment QA, work decomposition, and team allocation for a 3,000+ task program tied to approximately $9M in revenue.",
+          "Led an end-to-end, multi-domain delivery from asset conversion and validation through API upload, directly enabling at least $1.38M in billable scope and generalizing the tooling for reuse.",
+          "Created reusable packaging, QA, registry, and delivery workflows for reinforcement-learning environments, reducing a recurring customer-documentation task from about a day to roughly an hour.",
+          "Designed a shared AI gateway that migrated all production LLM traffic off a legacy path in under two weeks, added team-level cost attribution, and turned field insight into product improvements and durable operating playbooks."
+        ]
+      },
+      {
+        title: "Software Engineer Intern, iOS",
+        startDate: "May 2025",
+        endDate: "Aug 2025",
+        type: "Internship",
+        description: [
+          "Built product experiences with Handshake's iOS engineering team in support of connecting students with early-career opportunities."
+        ]
+      }
+    ]
+  },
+  {
+    id: 2,
     company: "Stealth Startup",
     imageSrc: "/images/jobs/stealth_startup.png",
     roles: [
@@ -34,7 +63,7 @@ export const workItems: WorkItem[] = [
     ]
   },
   {
-    id: 2,
+    id: 3,
     company: "Roku Inc.",
     imageSrc: "/images/jobs/RokuLogo.png",
     roles: [
@@ -52,7 +81,7 @@ export const workItems: WorkItem[] = [
     ]
   },
   {
-    id: 3,
+    id: 4,
     company: "University of San Francisco",
     imageSrc: "/images/jobs/USFLogoJob.png",
     overallDuration: "Jan 2022 - May 2024",
@@ -88,7 +117,7 @@ export const workItems: WorkItem[] = [
     ]
   },
   {
-    id: 4,
+    id: 5,
     company: "Kodely",
     imageSrc: "/images/jobs/KodelyLogo.png",
     roles: [
@@ -105,5 +134,4 @@ export const workItems: WorkItem[] = [
     ]
   }
 ];
-
 

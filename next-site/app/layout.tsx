@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FrankGuglielmo.com",
-  description: "Software Engineer Portfolio",
+  description: "Forward Deployed Engineer and app developer portfolio",
   viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
 };
 

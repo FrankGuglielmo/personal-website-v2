@@ -46,7 +46,7 @@ export default function WorkCard({ item, className = "" }: Props) {
           </div>
         </div>
       ) : (
-        <div className="md:grid md:grid-cols-[64px_1fr_auto] md:items-start md:gap-6">
+        <div className="md:grid md:grid-cols-[64px_1fr] md:items-start md:gap-6">
           {/* Logo */}
           <div className="hidden md:block relative h-16 w-16 rounded-xl overflow-hidden">
             <Image src={item.imageSrc} alt={`${item.company} logo`} fill sizes="4rem" className="object-contain" />
@@ -60,18 +60,27 @@ export default function WorkCard({ item, className = "" }: Props) {
               </div>
               <div>
                 <h3 className="text-xl md:text-2xl font-semibold">{item.company}</h3>
-                <p className="text-muted text-sm">{item.roles[0]?.type}</p>
+                {item.overallDuration ? (
+                  <p className="text-muted text-sm">{item.overallDuration}</p>
+                ) : null}
               </div>
             </div>
-            <div className="hidden md:block mb-1">
+            <div className="hidden md:flex items-baseline justify-between gap-4 mb-1">
               <h3 className="text-xl md:text-2xl font-semibold">{item.company}</h3>
-              <p className="text-muted text-sm">{item.roles[0]?.type}</p>
+              {item.overallDuration ? (
+                <p className="text-muted italic whitespace-nowrap">{item.overallDuration}</p>
+              ) : null}
             </div>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {item.roles.map((role, idx) => (
                 <div key={idx}>
-                  <h4 className="text-lg font-semibold">{role.title}</h4>
-                  <p className="md:hidden text-muted text-sm">{role.startDate} - {role.endDate}</p>
+                  <div className="md:flex md:items-baseline md:justify-between md:gap-4">
+                    <div>
+                      <h4 className="text-lg font-semibold">{role.title}</h4>
+                      <p className="text-muted text-sm">{role.type}</p>
+                    </div>
+                    <p className="text-muted text-sm md:italic md:whitespace-nowrap">{role.startDate} - {role.endDate}</p>
+                  </div>
                   <ul className="list-disc list-inside space-y-2 text-foreground/80 mt-2">
                     {role.description.map((line, j) => (
                       <li key={`${idx}-${j}`}>{line}</li>
@@ -81,17 +90,9 @@ export default function WorkCard({ item, className = "" }: Props) {
               ))}
             </div>
           </div>
-
-          {/* Overall date on desktop */}
-          <div className="hidden md:block text-right">
-            {item.overallDuration ? (
-              <p className="text-muted italic whitespace-nowrap">{item.overallDuration}</p>
-            ) : null}
-          </div>
         </div>
       )}
     </Card>
   );
 }
-
 
