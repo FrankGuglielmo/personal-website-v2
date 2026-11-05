@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Librario Support",
-  description: "Support page for Librario.",
-};
-
 import LegalPage from "@/components/LegalPage";
 import LegalSection from "@/components/LegalSection";
+import { pageMetadata } from "@/data/site";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Librario Support",
+  description: "Support page for Librario.",
+  path: "/Librario/support",
+});
+
 
 export default function LibrarioSupportPage() {
   return (

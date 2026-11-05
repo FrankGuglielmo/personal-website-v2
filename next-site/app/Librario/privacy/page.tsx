@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Librario Privacy Policy",
-  description: "Privacy policy for the Librario app.",
-};
-
 import LegalPage from "@/components/LegalPage";
 import LegalSection from "@/components/LegalSection";
+import { pageMetadata } from "@/data/site";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Librario Privacy Policy",
+  description: "Privacy policy for the Librario app.",
+  path: "/Librario/privacy",
+});
+
 
 export default function LibrarioPrivacyPage() {
   return (

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Card from "@/components/Card";
 import ResumeWidget from "@/components/ResumeWidget";
@@ -7,10 +8,19 @@ import { SiHandshake } from "react-icons/si";
 import { projects } from "@/data/projects";
 import ProjectCarousel from "@/components/ProjectCarousel";
 import WorkSection from "@/components/WorkSection";
+import SiteJsonLd from "@/components/SiteJsonLd";
+import { heroLead, heroSupport, pageMetadata, siteDescription, siteName } from "@/data/site";
+
+export const metadata: Metadata = pageMetadata({
+  title: siteName,
+  description: siteDescription,
+  path: "/",
+});
 
 export default function Home() {
   return (
     <main className="min-h-dvh py-10 site-content">
+      <SiteJsonLd />
       <section className="container mx-auto px-4 md:px-8 lg:px-12 xl:px-20">
         {/* Hero */}
         <section id="home" className="mb-12">
@@ -18,7 +28,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-[1.15fr_0.85fr] gap-6 items-center">
               <div>
                 <h1 className="text-4xl md:text-6xl font-semibold mb-4">Hi, I&apos;m Frank.</h1>
-                <p className="text-muted">I&apos;m a hands-on Forward Deployed Engineer and app developer, continually exploring ways to create and share impactful ideas through technology. My work revolves around building systems and apps that unite people in meaningful ways.</p>
+                <p className="text-muted">{heroLead} {heroSupport}</p>
 
                 <div className="mt-6 hidden md:flex items-center gap-3">
                   <a href="https://github.com/FrankGuglielmo" target="_blank" rel="noreferrer" className="liquid-icon icon-github" aria-label="GitHub">
