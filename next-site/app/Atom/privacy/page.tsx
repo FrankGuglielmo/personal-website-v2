@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Atom Privacy Policy",
-  description: "Privacy policy for the Atom email app.",
-};
-
 import LegalPage from "@/components/LegalPage";
 import LegalSection from "@/components/LegalSection";
+import { pageMetadata } from "@/data/site";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Atom Privacy Policy",
+  description: "Privacy policy for the Atom email app.",
+  path: "/Atom/privacy",
+});
+
 
 export default function AtomPrivacyPage() {
   return (

@@ -1,14 +1,57 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Analytics } from "@vercel/analytics/next"
+import { ogImage, siteDescription, siteName, siteTitle, siteUrl } from "@/data/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FrankGuglielmo.com",
-  description: "Forward Deployed Engineer and app developer portfolio",
-  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: siteTitle,
+    template: `%s · ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  authors: [{ name: siteName, url: siteUrl }],
+  creator: siteName,
+  alternates: {
+    canonical: siteUrl,
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName,
+    title: siteTitle,
+    description: siteDescription,
+    images: [ogImage],
+  },
+  twitter: {
+    card: "summary",
+    title: siteTitle,
+    description: siteDescription,
+    images: [ogImage.url],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/FrankGuglielmo192.png", sizes: "192x192", type: "image/png" },
+      { url: "/FrankGuglielmo512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/FrankGuglielmo192.png", sizes: "192x192", type: "image/png" }],
+  },
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
