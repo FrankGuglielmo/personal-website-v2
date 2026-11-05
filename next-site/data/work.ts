@@ -55,9 +55,9 @@ export const workItems: WorkItem[] = [
         endDate: "Present",
         type: "Internship",
         description: [
-          "Developed a modular \"Cluster Manager\" to orchestrate multi-modal app actions (audio playback, animations, camera moves) in parallel with complex start/end conditions",
-          "Emphasized thread-safety & concurrency control to ensure smooth updates under frequent user/server events",
-          "Implemented a system for creating new users & conversations via an admin portal for regression testing & feature development"
+          "Developed a modular \"Cluster Manager\" that orchestrates multi-modal app actions (audio playback, animations, camera moves) in parallel with complex start and end conditions.",
+          "Emphasized thread safety and concurrency control to keep updates smooth under frequent user and server events.",
+          "Implemented an admin-portal system for creating new users and conversations to support regression testing and feature development."
         ]
       }
     ]
@@ -73,9 +73,9 @@ export const workItems: WorkItem[] = [
         endDate: "Aug 2023",
         type: "Internship",
         description: [
-          "Architected & developed a MacOS Daemon in Swift to analyze & report Mac state changes",
-          "Implemented a REST API in Go to allow third party devices to transmit state events to Roku's IoT cloud infrastructure",
-          "Utilized Apache Kafka in the event processing pipeline to guarantee at-least-once delivery of state change events"
+          "Architected and developed Raum, a macOS daemon in Swift that analyzes and reports Mac state changes.",
+          "Implemented a REST API in Go that lets third-party devices send state events to Roku's IoT cloud infrastructure.",
+          "Used Apache Kafka in the event-processing pipeline to guarantee at-least-once delivery of state change events."
         ]
       }
     ]
@@ -92,8 +92,8 @@ export const workItems: WorkItem[] = [
         endDate: "May 2024",
         type: "Part-time",
         description: [
-          "Mentored students in using data structures & algorithms to build a full stack, web-based search engine in Java.",
-          "Advised the development of clean, production level code by reviewing & asking students questions during office hours."
+          "Mentored students in applying data structures and algorithms to build a full-stack, web-based search engine in Java.",
+          "Encouraged clean, production-level code by reviewing student work and asking guiding questions during office hours."
         ]
       },
       {
@@ -102,7 +102,7 @@ export const workItems: WorkItem[] = [
         endDate: "May 2024",
         type: "Part-time",
         description: [
-          "Offered specialized tutoring for both undergraduate & graduate computer science students, covering diverse coursework, assignments, & project inquiries."
+          "Tutored undergraduate and graduate computer science students across a wide range of coursework, assignments, and project questions."
         ]
       },
       {
@@ -123,12 +123,12 @@ export const workItems: WorkItem[] = [
     roles: [
       {
         title: "Kodely Leader",
-        startDate: "Aug 2022 ",
+        startDate: "Aug 2022",
         endDate: "Dec 2022",
         type: "Part-time",
         description: [
-          "Taught after-school classes to young children, focusing on hands-on learning & practical application of building & prototyping real-world projects.",
-          "Fostered a positive & inclusive learning environment, guiding children through the process of conceptualizing, designing, & constructing their own projects, while emphasizing teamwork & collaboration."
+          "Taught after-school classes for young children, focused on hands-on learning by building and prototyping real-world projects.",
+          "Fostered a positive, inclusive environment, guiding children as they conceptualized, designed, and built their own projects with an emphasis on teamwork and collaboration."
         ]
       }
     ]
