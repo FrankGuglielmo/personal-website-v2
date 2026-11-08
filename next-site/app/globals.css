@@ -15,10 +15,16 @@
   --radius-xl: 18px;
   --radius-2xl: 22px;
   --radius-3xl: 28px;
+
+  /* Average tone of each background image; Safari paints this behind its toolbars and in overscroll */
+  --page-bg-light: #c09ec5;
+  --page-bg-dark: #33296f;
+  --page-bg: var(--page-bg-light);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --page-bg: var(--page-bg-dark);
     --color-bg: 222 47% 8%;
     --color-surface: 222 25% 12%;
     --color-text: 210 40% 98%;
@@ -31,6 +37,7 @@
 /* Explicit class for manual toggling */
 .dark {
   color-scheme: dark;
+  --page-bg: var(--page-bg-dark);
   --color-bg: 222 47% 8%;
   --color-surface: 222 25% 12%;
   --color-text: 210 40% 98%;
@@ -41,6 +48,7 @@
 
 .light {
   color-scheme: light;
+  --page-bg: var(--page-bg-light);
   --color-bg: 210 20% 98%;
   --color-surface: 0 0% 100%;
   --color-text: 224 71% 4%;
@@ -76,8 +84,8 @@
 
 /* Color tokens for Tailwind v3 compatibility */
 
-html { background: transparent; }
-body { color: hsl(var(--color-text)); position: relative; }
+html { background-color: var(--page-bg); }
+body { color: hsl(var(--color-text)); position: relative; min-height: 100dvh; }
 
 /* Density utilities */
 .pad-compact { padding: 12px; }
@@ -173,19 +181,12 @@ body::before,
 body::after {
   content: "";
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  /* Extend into safe areas on mobile devices */
-  padding-top: env(safe-area-inset-top, 0);
-  padding-left: env(safe-area-inset-left, 0);
-  padding-right: env(safe-area-inset-right, 0);
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  margin-top: calc(-1 * env(safe-area-inset-top, 0));
-  margin-left: calc(-1 * env(safe-area-inset-left, 0));
-  margin-right: calc(-1 * env(safe-area-inset-right, 0));
-  margin-bottom: calc(-1 * env(safe-area-inset-bottom, 0));
+  /* Bleed into safe areas and stay tall enough when iOS toolbars collapse (lvh) */
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  left: calc(-1 * env(safe-area-inset-left, 0px));
+  right: calc(-1 * env(safe-area-inset-right, 0px));
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  min-height: calc(100lvh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
   z-index: 0;
   background-position: center;
