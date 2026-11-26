@@ -1,7 +1,7 @@
 // Run: node --test app/api/taboo/_lib/engine.test.mjs   (Node 22.18+, type stripping)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GRACE_MS, HOST_AWAY_MS, GameError, addPlayer, applyAction, createRoom, normalizeRoom, tick, viewFor } from "./engine.ts";
+import { GRACE_MS, HOST_AWAY_MS, GameError, addPlayer, applyAction, createRoom, normalizeRoom, tick, touch, viewFor } from "./engine.ts";
 
 const CARDS = Array.from({ length: 30 }, (_, id) => ({ id, word: `Word${id}`, taboo: ["a", "b", "c", "d", "e"] }));
 const deck = { ids: () => CARDS.map((c) => c.id), get: (id) => CARDS[id] };
@@ -259,4 +259,71 @@ test("rooms saved before team counts existed keep working", () => {
   finishTurn(r, now + 1000, 1);
   assert.equal(r.activeTeam, 1);
   assert.deepEqual(r.scores, [1, 0]);
+});
+
+test("leaving the tab or locking the phone never removes players, ends the room, or moves VIP", async () => {
+  const { room, now } = setup(6);
+  act(room, "p0", "setSettings", { teamCount: 3 }, now);
+  act(room, "p0", "shuffleTeams", {}, now);
+  const teamsBefore = room.players.map((p) => [p.id, p.team]);
+  act(room, "p0", "start", {}, now);
+  act(room, room.clueGiverId, "beginTurn", {}, now);
+  // Host goes silent (no requests at all) for 30 s, 60 s, 2 min, then an hour, while others keep playing.
+  for (const gap of [30_000, 60_000, 120_000, 3_600_000]) {
+    const t = now + gap;
+    tick(room, t);
+    for (const p of room.players.filter((x) => x.id !== "p0")) touch(room, p.id, t);
+    assert.equal(room.players.length, 6, `nobody removed after ${gap / 1000}s`);
+    assert.equal(room.hostId, "p0", `host kept after ${gap / 1000}s`);
+    assert.notEqual(room.phase, "over", `room not ended after ${gap / 1000}s`);
+    assert.deepEqual(room.players.map((p) => [p.id, p.team]), teamsBefore);
+  }
+  // The turn timer still ran out on its own; the returning host just resumes.
+  assert.equal(room.phase, "review");
+  const v = viewFor(room, "p0", now + 3_600_000, deck);
+  assert.equal(v.me.isHost, true);
+  assert.equal(v.players.find((p) => p.id === "p0").online, false, "shown as away, not removed");
+  touch(room, "p0", now + 3_600_001);
+  assert.equal(viewFor(room, "p0", now + 3_600_002, deck).players.find((p) => p.id === "p0").online, true);
+  act(room, "p0", "confirmReview", {}, now + 3_600_003);
+  assert.equal(room.phase, "ready");
+});
+
+test("VIP can't be claimed while the host's phone is only briefly locked", () => {
+  const { room, now } = setup(4);
+  for (const gap of [30_000, 60_000, 120_000]) {
+    assert.throws(() => act(room, "p1", "claimHost", {}, now + gap), /still here/, `not claimable after ${gap / 1000}s`);
+  }
+  act(room, "p1", "claimHost", {}, now + HOST_AWAY_MS);
+  assert.equal(room.hostId, "p1");
+  assert.equal(room.players.length, 4, "claiming VIP never removes the old host");
+});
+
+test("only explicit host actions end the game", () => {
+  const { room, now } = setup(4);
+  act(room, "p0", "start", {}, now);
+  for (const op of ["endGame", "newGame"]) assert.throws(() => act(room, "p2", op, {}, now), /Only the host/);
+  for (const t of [now + 1, now + 600_000, now + 7 * 3_600_000]) tick(room, t);
+  assert.equal(room.phase, "ready");
+  act(room, "p0", "endGame", {}, now + 1);
+  assert.equal(room.phase, "over");
+});
+
+test("snapshots survive a redeploy and rebuild the room on a fresh instance", async () => {
+  const { snapshotKeys, sealRoom, openRoom } = await import("./snapshot.ts");
+  const { room, now } = setup(4);
+  act(room, "p0", "start", {}, now);
+  act(room, "p0", "beginTurn", {}, now);
+  const before = { VERCEL_PROJECT_ID: "prj_1", VERCEL_DEPLOYMENT_ID: "dpl_old", VERCEL_URL: "old.vercel.app" };
+  const after = { VERCEL_PROJECT_ID: "prj_1", VERCEL_DEPLOYMENT_ID: "dpl_new", VERCEL_URL: "new.vercel.app" };
+  const snap = sealRoom(room, snapshotKeys(before));
+  const rebuilt = openRoom(snap, "ABCD", snapshotKeys(after));
+  assert.ok(rebuilt, "new deployment can read the old deployment's snapshot");
+  assert.equal(rebuilt.version, room.version);
+  assert.equal(rebuilt.turn.currentCardId, room.turn.currentCardId);
+  assert.ok(openRoom(snap, "ABCD", snapshotKeys({ ...after, TABOO_SECRET: "added-later" })), "adding TABOO_SECRET later keeps old snapshots readable");
+  assert.equal(openRoom(snap, "WXYZ", snapshotKeys(after)), null, "snapshot is bound to its room code");
+  assert.equal(openRoom(snap.slice(0, -6) + "AAAAAA", "ABCD", snapshotKeys(after)), null, "tampered snapshot rejected");
+  const legacy = sealRoom(room, snapshotKeys({ VERCEL_DEPLOYMENT_ID: "dpl_old", VERCEL_URL: "old.vercel.app" }).slice(-1));
+  assert.ok(openRoom(legacy, "ABCD", snapshotKeys(before)), "snapshots sealed by the current deployment's old-style key still open");
 });
