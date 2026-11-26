@@ -73,6 +73,8 @@ export function useRoom() {
   const sessionRef = useRef<Session | null>(null);
   const versionRef = useRef(0);
   const missesRef = useRef(0);
+  // Bumped when an action finishes, so a poll that started earlier can't overwrite its result.
+  const actionsDoneRef = useRef(0);
   sessionRef.current = session;
 
   const absorb = useCallback((res: ApiResponse, rtt: number, receivedAt: number, s: Session) => {
@@ -81,15 +83,15 @@ export function useRoom() {
     const samples = [...samplesRef.current, { rtt, offset }].slice(-10);
     samplesRef.current = samples;
     offsetRef.current = samples.reduce((best, x) => (x.rtt < best.rtt ? x : best)).offset;
-    if (res.snapshot) {
-      snapshotRef.current = res.snapshot;
-      try {
-        localStorage.setItem(snapKey(s.code), res.snapshot);
-      } catch {}
-    }
     if (res.view.version >= versionRef.current) {
       versionRef.current = res.view.version;
       setView(res.view);
+      if (res.snapshot) {
+        snapshotRef.current = res.snapshot;
+        try {
+          localStorage.setItem(snapKey(s.code), res.snapshot);
+        } catch {}
+      }
     }
     setOffline(false);
     return true;
@@ -152,7 +154,10 @@ export function useRoom() {
       const s = sessionRef.current;
       if (!s) return false;
       try {
+        const startedAfter = actionsDoneRef.current;
         const { res, rtt, receivedAt } = await post({ op, code: s.code, token: s.token, snapshot: snapshotRef.current, ...args });
+        if (op !== "sync") actionsDoneRef.current++;
+        else if (startedAfter !== actionsDoneRef.current) return false;
         if (!res.ok) {
           if (res.removed || (res.gone && !res.missing)) {
             leaveLocal(s.code, op === "leave" ? null : res.error);

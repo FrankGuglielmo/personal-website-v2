@@ -26,6 +26,8 @@ export type Player = {
   token: string;
   joinedAt: number;
   lastSeen: number;
+  /** When this player's name/team last changed (see merge.ts). */
+  seatAt?: number;
 };
 
 export type Played = { cardId: number; result: CardResult };
@@ -55,6 +57,10 @@ export type Room = {
   deckPos: number;
   lastTurn: { team: TeamIdx; clueGiverName: string; played: Played[]; delta: number } | null;
   winner: TeamIdx | "tie" | null;
+  /** When game state (anything but the player list) last changed (see merge.ts). */
+  gameAt?: number;
+  /** Ids of kicked or departed players, so an older copy can't bring them back. */
+  removed?: string[];
 };
 
 export type DeckSource = {
@@ -251,6 +257,24 @@ function removePlayer(room: Room, playerId: string): void {
     if (room.phase === "active") toReview(room);
     else if (room.phase === "ready") pickClueGiver(room);
   }
+}
+
+/** Fixes what merging two diverged copies of a room can break. */
+export function repairRoom(room: Room): Room {
+  for (const p of room.players.slice().sort((a, b) => a.joinedAt - b.joinedAt)) {
+    if (p.team !== null && !validTeam(room, p.team)) {
+      p.team = null;
+      p.team = smallerTeam(room);
+    }
+  }
+  if (!room.players.some((p) => p.id === room.hostId)) {
+    const next = room.players.slice().sort((a, b) => a.joinedAt - b.joinedAt)[0];
+    room.hostId = next ? next.id : "";
+  }
+  if (room.clueGiverId && !room.players.some((p) => p.id === room.clueGiverId)) {
+    if (room.phase === "ready") pickClueGiver(room);
+  } else if (room.phase === "ready" && !room.clueGiverId) pickClueGiver(room);
+  return room;
 }
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
