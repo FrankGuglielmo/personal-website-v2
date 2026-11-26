@@ -87,7 +87,7 @@ export type ApiRequest =
 
 export type ApiResponse =
   | { ok: true; view: RoomView; snapshot?: string; playerId?: string; token?: string }
-  | { ok: false; error: string; gone?: boolean };
+  | { ok: false; error: string; gone?: boolean; removed?: boolean; missing?: boolean };
 
 export const ROUND_OPTIONS = [45, 60, 90] as const;
 export const TEAM_COUNT_OPTIONS = [2, 3, 4] as const;

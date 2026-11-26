@@ -50,12 +50,15 @@ function okView(room: Room, playerId: string, now: number, extra: { playerId?: s
   return reply({
     ok: true,
     view: viewFor(room, playerId, now, deck),
-    snapshot: store.kind === "memory" ? sealRoom(room) : undefined,
+    snapshot: store.kind !== "redis" ? sealRoom(room) : undefined,
     ...extra,
   });
 }
 
-class GoneError extends Error {}
+/** The room isn't on this instance/store and no usable snapshot came with the request. Clients keep their session and retry. */
+class MissingRoomError extends Error {}
+/** The player was kicked or left. Clients drop their session. */
+class RemovedError extends Error {}
 
 /** Loads a room, runs `fn`, and saves with compare-and-set, retrying on races. */
 async function withRoom<T>(
@@ -64,13 +67,13 @@ async function withRoom<T>(
   fn: (room: Room, now: number) => { changed: boolean; result: T },
 ): Promise<{ room: Room; now: number; result: T }> {
   const store = getStore();
-  if (store.kind === "memory") {
+  if (store.kind !== "redis") {
     const snap = openRoom(snapshot, code);
-    if (snap) await adoptSnapshot(snap);
+    if (snap) await adoptSnapshot(normalizeRoom(snap));
   }
   for (let attempt = 0; attempt < 5; attempt++) {
     const stored = await store.get(code);
-    if (!stored) throw new GoneError("Room not found. It may have expired.");
+    if (!stored) throw new MissingRoomError("Room not found. It may have expired.");
     const room = normalizeRoom(stored);
     const before = room.version;
     const now = Date.now();
@@ -130,7 +133,7 @@ export async function POST(req: Request) {
     let playerId = "";
     const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
       const me = findByToken(r, token);
-      if (!me) throw new GoneError("You're no longer in this room");
+      if (!me) throw new RemovedError("You're no longer in this room");
       playerId = me.id;
       const seen = touch(r, me.id, t);
       if (op === "sync") return { changed: seen, result: null };
@@ -138,11 +141,12 @@ export async function POST(req: Request) {
       return { changed: true, result: null };
     });
     if (op === "leave" || !room.players.some((p) => p.id === playerId)) {
-      return reply({ ok: false, error: "You left the room", gone: true });
+      return reply({ ok: false, error: "You left the room", gone: true, removed: true });
     }
     return okView(room, playerId, now);
   } catch (err) {
-    if (err instanceof GoneError) return reply({ ok: false, error: err.message, gone: true }, 404);
+    if (err instanceof MissingRoomError) return reply({ ok: false, error: err.message, missing: true }, 404);
+    if (err instanceof RemovedError) return reply({ ok: false, error: err.message, gone: true, removed: true }, 404);
     if (err instanceof GameError) return reply({ ok: false, error: err.message }, 409);
     console.error("taboo api error", err);
     return reply({ ok: false, error: "Server error" }, 500);
