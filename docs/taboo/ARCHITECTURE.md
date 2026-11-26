@@ -13,18 +13,19 @@ No new npm dependencies: Upstash is called over its REST API with `fetch`, and e
 
 ## 1. Rules
 
-- **Teams:** two teams with editable names (default Team A and Team B). Players pick a team in the lobby, or the host shuffles them. You need at least 2 players per team to start. Odd team sizes are fine: each team has its own clue-giver rotation, so members of the smaller team give clues more often.
+- **Teams:** 2, 3 or 4 teams (default 2), set by the host, with names only the host can edit (defaults Team A to Team D). Players pick a team in the lobby, or the host shuffles them. You need at least 2 players per team to start. Teams take turns in order. Odd team sizes are fine: each team has its own clue-giver rotation, so members of a smaller team give clues more often. Rooms saved before team counts existed are upgraded to 2 teams on load.
+- **VIP host:** the room creator is the VIP host (crown badge everywhere their name appears). Only the host can change the rules (team count, team names, turn length, skip penalty, win mode and target), shuffle teams, kick, and start, end or restart the game; the server enforces this. Non-hosts see the rules read-only. The host can hand VIP to another player, and anyone can claim it if the host has been gone 45 s.
 - **Turn:** teams alternate. The clue-giver rotates through each team in join order. The "Ready" screen shows everyone who is up, and the clue-giver (or host) taps Start.
 - **Roles during a turn:**
   - **Clue-giver** sees the card (target word plus 5 forbidden words) and the buttons Correct (+1), Skip (penalty 0 or -1, set in setup), and Undo.
   - **Own-team guessers** see the timer, the turn score and "Guess!". They never receive the card.
-  - **Opposing team (watchers)** see the card and a big **Buzz** button (-1, skips the card). Duplicate buzzes are ignored: every action carries the card id, and stale ids are dropped.
+  - **Every non-active team (watchers)** sees the card and a big **Buzz** button (-1, skips the card). Duplicate buzzes, including near-simultaneous ones from different teams, count once: every action carries the card id, and once the first buzz moves to the next card the others are stale and dropped.
   - **Spectators** (no team) see the timer and scores but not the card.
   - **Host:** a normal player who also controls settings, start, pause and resume, kick, end game and new game.
 - **Timer:** 45, 60 or 90 s (default 60). The server holds `endsAt`. Taps arriving up to 750 ms after zero still count, to cover network delay. After that the server moves to review.
 - **Review (disputes and undo):** after time-up everyone sees the list of cards played. The clue-giver or host can tap a result to change it (correct, skip, buzz), then confirm. Scores are applied on confirm. During a turn, Undo reverts the last tap.
 - **Pause:** the host or clue-giver can pause. The server stores the remaining milliseconds and resets `endsAt` on resume.
-- **Win:** first to the target score (default 20), or a fixed number of rounds. The game is only checked once both teams have had the same number of turns. A tie at the target means play continues until a full round breaks it. In rounds mode a tie stays a tie.
+- **Win:** first to the target score (default 20), or a fixed number of rounds. The game is only checked once every team has had the same number of turns. If the lead at or above the target is shared, play continues until a full round breaks it. In rounds mode a shared lead stays a tie.
 - **More than 10 players:** works as-is (polling load scales linearly). The cap is 24 players per room.
 
 ## 2. Realtime and the server
