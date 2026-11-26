@@ -12,7 +12,8 @@ import {
   viewFor,
   type Room,
 } from "./_lib/engine";
-import { getStore, openRoom, sealRoom } from "./_lib/store";
+import { covers, mergeRooms, stampChanges } from "./_lib/merge";
+import { getStore, openRoom, recallLocal, rememberLocal, sealRoom } from "./_lib/store";
 import { wordsFor } from "./_lib/words";
 
 export const runtime = "nodejs";
@@ -42,10 +43,13 @@ function okView(room: Room, playerId: string, now: number, extra: { playerId?: s
 
 class GoneError extends Error {}
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * Loads the shared copy of a room (falling back to the caller's snapshot only
- * if the shared copy is missing or older), runs `fn`, and saves with a version
- * check, retrying on races. `fn` returns whether the room changed.
+ * Builds the room from every copy this request can see (shared store, this
+ * instance's memory, the caller's snapshot), runs `fn`, and writes the result
+ * back whenever the shared copy is missing anything. `fn` returns whether the
+ * room changed. See merge.ts for why there is no compare-and-set.
  */
 async function withRoom(
   code: string,
@@ -54,27 +58,26 @@ async function withRoom(
 ): Promise<{ room: Room; now: number }> {
   const store = getStore();
   const snap = openRoom(snapshot, code);
-  for (let attempt = 0; attempt < 6; attempt++) {
-    let room = await store.get(code);
-    if (snap && (!room || snap.version > room.version)) {
-      if (!(await store.put(snap, room ? room.version : null))) continue;
-      room = structuredClone(snap);
-    }
-    if (!room) throw new GoneError("Room not found. It may have expired.");
-    applyPresence(room, await store.getPresence(code));
-    const before = room.version;
-    const now = Date.now();
-    if (fn(room, now)) {
-      room.version = before + 1;
-      room.updatedAt = now;
-      if (!(await store.put(room, before))) {
-        await new Promise((r) => setTimeout(r, 15 + Math.random() * 60));
-        continue;
-      }
-    }
-    return { room, now };
+  let stored = await store.get(code);
+  let room = mergeRooms([stored, recallLocal(code), snap]);
+  // A missing room can be a brief cache miss; look again before giving up.
+  for (let i = 0; !room && i < 3; i++) {
+    await sleep(150 + i * 150);
+    stored = await store.get(code);
+    room = mergeRooms([stored, recallLocal(code)]);
   }
-  throw new GameError("The room is busy, try again");
+  if (!room) throw new GoneError("Room not found. It may have expired.");
+  applyPresence(room, await store.getPresence(code));
+  const now = Date.now();
+  const before = structuredClone(room);
+  if (fn(room, now)) stampChanges(before, room, now);
+  if (!covers(stored, room)) {
+    room.version += 1;
+    room.updatedAt = now;
+    await store.set(room);
+  }
+  rememberLocal(room);
+  return { room, now };
 }
 
 /** Records that a player is still connected, at most once per TOUCH_MS. */
@@ -99,11 +102,15 @@ export async function POST(req: Request) {
     if (op === "create") {
       for (let i = 0; i < 10; i++) {
         const code = newCode();
-        if (await store.get(code)) continue;
+        if (recallLocal(code) || (await store.get(code))) continue;
         const now = Date.now();
         const host = { id: newId(), token: newToken() };
         const room = createRoom(code, host, now);
-        if (!(await store.put(room, null))) continue;
+        room.gameAt = now;
+        room.removed = [];
+        for (const p of room.players) p.seatAt = now;
+        await store.set(room);
+        rememberLocal(room);
         await store.touch(code, host.id, now);
         return okView(room, host.id, now, { playerId: host.id, token: host.token });
       }

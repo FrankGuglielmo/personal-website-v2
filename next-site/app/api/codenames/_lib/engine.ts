@@ -30,6 +30,8 @@ export type Player = {
   token: string;
   joinedAt: number;
   lastSeen: number;
+  /** When this player's name/seat/token last changed (used to merge diverged copies). */
+  seatAt?: number;
 };
 
 type HistoryEntry = { kind: "reveal"; index: number; turnBefore: Team } | { kind: "pass"; turnBefore: Team };
@@ -56,6 +58,10 @@ export type Room = {
   eventSeq: number;
   gameNo: number;
   recent: string[];
+  /** When anything outside the player list last changed (used to merge diverged copies). */
+  gameAt?: number;
+  /** Ids of players who were kicked, left, or replaced as the board; never re-added. */
+  removed?: string[];
 };
 
 export type WordSource = (pack: PackId) => readonly string[];
