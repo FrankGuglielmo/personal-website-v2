@@ -101,6 +101,8 @@ export function useRoom() {
     setView(null);
     versionRef.current = 0;
     snapshotRef.current = undefined;
+    missesRef.current = 0;
+    setOffline(false);
     setError(message);
   }, []);
 
