@@ -11,14 +11,14 @@ import { lastRoomCode, loadSession, useRoom } from "./useRoom";
 type Send = (op: string, args?: Record<string, unknown>) => Promise<boolean>;
 
 const TEAM_STYLE: Record<TeamIdx, { text: string; ring: string; dot: string }> = {
-  0: { text: "text-blue-700 dark:text-blue-300", ring: "ring-blue-500/60", dot: "bg-blue-500" },
-  1: { text: "text-pink-700 dark:text-pink-300", ring: "ring-pink-500/60", dot: "bg-pink-500" },
+  0: { text: "text-blue-700 [.dark_&]:text-blue-300", ring: "ring-blue-500/60", dot: "bg-blue-500" },
+  1: { text: "text-pink-700 [.dark_&]:text-pink-300", ring: "ring-pink-500/60", dot: "bg-pink-500" },
 };
 
 const RESULT_STYLE: Record<CardResult, { label: string; cls: string }> = {
-  correct: { label: "Correct +1", cls: "bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border-emerald-500/40" },
-  skip: { label: "Skipped", cls: "bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-500/40" },
-  buzz: { label: "Buzzed -1", cls: "bg-rose-500/20 text-rose-800 dark:text-rose-200 border-rose-500/40" },
+  correct: { label: "Correct +1", cls: "bg-emerald-500/20 text-emerald-800 [.dark_&]:text-emerald-200 border-emerald-500/40" },
+  skip: { label: "Skipped", cls: "bg-amber-500/20 text-amber-900 [.dark_&]:text-amber-200 border-amber-500/40" },
+  buzz: { label: "Buzzed -1", cls: "bg-rose-500/20 text-rose-800 [.dark_&]:text-rose-200 border-rose-500/40" },
 };
 
 const muted = "text-[hsl(var(--color-muted))]";
@@ -67,12 +67,18 @@ export default function TabooApp() {
     prevRef.current = { phase: view.phase, played: played.length };
   }, [view]);
 
+  const inGame = !!view && view.phase !== "lobby";
+
   return (
-    <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 md:pb-12 md:pt-10">
-      <header className="mb-4 text-center">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Forbidden Words</h1>
-        <p className={twMerge("text-sm", muted)}>A Taboo-style party game · one phone each</p>
-      </header>
+    <main className={twMerge("mx-auto w-full max-w-xl px-4 pb-32 md:pb-12 md:pt-10", inGame ? "pt-3" : "pt-6")}>
+      {inGame ? (
+        <h1 className="sr-only">Forbidden Words</h1>
+      ) : (
+        <header className="mb-4 text-center">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Forbidden Words</h1>
+          <p className={twMerge("text-sm", muted)}>A Taboo-style party game · one phone each</p>
+        </header>
+      )}
 
       {room.error && (
         <div role="alert" className="mb-3 flex items-start justify-between gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-sm">
@@ -228,7 +234,7 @@ function Game({ view, send, serverNow }: { view: RoomView; send: Send; serverNow
 }
 
 function Scoreboard({ view }: { view: RoomView }) {
-  const target = view.settings.winMode === "score" ? `to ${view.settings.target}` : `${view.settings.target} rounds`;
+  const target = view.settings.winMode === "score" ? `First to ${view.settings.target}` : `${view.settings.target} rounds`;
   return (
     <Panel className="p-3 sm:p-3">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
@@ -246,7 +252,7 @@ function Scoreboard({ view }: { view: RoomView }) {
           </div>
         ))}
         <div className={twMerge("order-2 text-xs", muted)}>
-          <div>Round {Math.min(view.turnsPlayed[0], view.turnsPlayed[1]) + 1}</div>
+          {view.phase !== "over" && <div>Round {Math.min(view.turnsPlayed[0], view.turnsPlayed[1]) + 1}</div>}
           <div>{target}</div>
         </div>
       </div>
@@ -558,12 +564,12 @@ function TimerBar({ remainingMs, totalMs, paused }: { remainingMs: number; total
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <span className={twMerge("text-5xl font-bold tabular-nums", secs <= 5 && !paused && "text-rose-600 dark:text-rose-400")}>
+        <span className={twMerge("text-5xl font-bold tabular-nums", secs <= 5 && !paused && "text-rose-600 [.dark_&]:text-rose-400")}>
           {paused ? "II" : secs === 0 ? "0" : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`}
         </span>
         <span className={twMerge("text-sm", muted)}>{paused ? "Paused" : secs === 0 ? "Time's up!" : "remaining"}</span>
       </div>
-      <div className="mt-2 h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+      <div className="mt-2 h-3 overflow-hidden rounded-full bg-black/10 [.dark_&]:bg-white/10">
         <div className={twMerge("h-full rounded-full transition-[width] duration-200 ease-linear", color)} style={{ width: `${pct}%` }} />
       </div>
       <span className="sr-only" aria-live="polite">
@@ -575,13 +581,13 @@ function TimerBar({ remainingMs, totalMs, paused }: { remainingMs: number; total
 
 function CardView({ card }: { card: PublicCard }) {
   return (
-    <div className="rounded-3xl border border-white/50 bg-white/70 p-5 text-center text-black shadow-lg dark:bg-black/40 dark:text-white">
+    <div className="rounded-3xl border border-white/50 bg-white/75 p-4 text-center text-black shadow-lg [.dark_&]:border-white/25 [.dark_&]:bg-black/45 [.dark_&]:text-white sm:p-5">
       <div className="break-words text-4xl font-extrabold leading-tight sm:text-5xl">{card.word}</div>
-      <div className="my-4 h-px bg-rose-500/40" />
-      <div className="text-xs font-semibold uppercase tracking-widest text-rose-600 dark:text-rose-400">Don&apos;t say</div>
-      <ul className="mt-2 space-y-1.5">
+      <div className="my-3 h-px bg-rose-500/40" />
+      <div className="text-xs font-semibold uppercase tracking-widest text-rose-600 [.dark_&]:text-rose-400">Don&apos;t say</div>
+      <ul className="mt-1 space-y-0.5">
         {card.taboo.map((w) => (
-          <li key={w} className="text-2xl font-semibold capitalize">
+          <li key={w} className="text-xl font-semibold capitalize sm:text-2xl">
             {w}
           </li>
         ))}
@@ -653,7 +659,7 @@ function Active({ view, send, serverNow }: { view: RoomView; send: Send; serverN
               BUZZ!
             </Btn>
           )}
-          {isWatcher && <p className={twMerge("text-center text-sm", muted)}>Tap Buzz if {giver} says the word or a forbidden word.</p>}
+          {isWatcher && <p className="text-center text-sm font-medium opacity-90">Tap Buzz if {giver} says the word or a forbidden word.</p>}
         </>
       ) : (
         <Panel className="py-10 text-center">
@@ -697,7 +703,7 @@ function Review({ view, send }: { view: RoomView; send: Send }) {
   return (
     <Panel className="space-y-3">
       <div className="text-center">
-        <div className="text-sm font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">Time&apos;s up!</div>
+        <div className="text-sm font-semibold uppercase tracking-wide text-rose-600 [.dark_&]:text-rose-400">Time&apos;s up!</div>
         <h2 className="text-2xl font-bold">
           {view.teamNames[view.activeTeam]}: {signed(turn?.delta ?? 0)}
         </h2>

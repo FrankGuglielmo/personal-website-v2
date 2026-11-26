@@ -63,7 +63,7 @@ export function Segmented<T extends string | number>({
             onClick={() => onChange(o.value)}
             className={twMerge(
               "min-h-[40px] flex-1 rounded-xl px-2 text-sm font-medium transition disabled:opacity-60",
-              o.value === value ? "bg-white/70 text-black shadow dark:bg-white/25 dark:text-white" : "hover:bg-white/20",
+              o.value === value ? "bg-white/70 text-black shadow [.dark_&]:bg-white/25 [.dark_&]:text-white" : "hover:bg-white/20",
             )}
           >
             {o.label}
@@ -75,4 +75,4 @@ export function Segmented<T extends string | number>({
 }
 
 export const inputCls =
-  "w-full min-h-[48px] rounded-2xl border border-white/40 bg-white/50 px-4 text-base text-black placeholder:text-black/40 outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] dark:bg-white/10 dark:text-white dark:placeholder:text-white/40";
+  "w-full min-h-[48px] rounded-2xl border border-white/40 bg-white/50 px-4 text-base text-black placeholder:text-black/40 outline-none focus:ring-2 focus:ring-[hsl(var(--color-accent))] [.dark_&]:bg-white/10 [.dark_&]:text-white [.dark_&]:placeholder:text-white/40";
