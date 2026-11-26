@@ -80,26 +80,35 @@ async function presence(code: string, me: string, now: number): Promise<Presence
 
 /**
  * Loads a room, runs `fn`, and saves when `fn` changed something.
- * Shared-cache reads can lag a write by a second or two, so the room is the
- * newer of the stored copy and the caller's sealed snapshot, polls never
- * write, and timers are derived on read (see tick).
+ * Shared-cache reads can lag a write by a second or two, so polls never write
+ * and timers are derived on read (see tick). The caller's sealed snapshot is
+ * used only when the store has no copy; it must not mask a lost write, since
+ * clients resend actions the stored room doesn't acknowledge.
  */
 async function withRoom(
   code: string,
   snapshot: unknown,
   fn: (room: Room, now: number) => boolean,
+  writing = false,
 ): Promise<{ room: Room; now: number }> {
   const store = getStore();
   const snap = store.kind === "redis" ? null : openRoom(snapshot, code);
   const snapFresh = snap && Date.now() - snap.updatedAt < ROOM_TTL_MS ? snap : null;
+  // Each read may independently be a lagging copy, so a write starts from the
+  // newest of a few reads. Polls only render, so one read is enough.
+  const load = async () => {
+    if (!writing || store.kind === "redis") return store.get(code);
+    const rooms = await Promise.all([store.get(code), store.get(code), store.get(code)]);
+    return rooms.reduce((a, b) => (!a || (b && b.version > a.version) ? b : a), null);
+  };
   for (let attempt = 0; attempt < 5; attempt++) {
-    let stored = await store.get(code);
+    let stored = await load();
     // A just-created room can take a moment to reach other instances.
     for (let i = 0; i < 2 && !stored && !snapFresh; i++) {
       await sleep(700);
-      stored = await store.get(code);
+      stored = await load();
     }
-    const room = snapFresh && (!stored || snapFresh.version > stored.version) ? structuredClone(snapFresh) : stored;
+    const room = stored ?? (snapFresh ? structuredClone(snapFresh) : null);
     if (!room) throw new GoneError("Room not found. It may have expired.");
     const base = room.version;
     const now = Date.now();
@@ -162,7 +171,7 @@ export async function POST(req: Request) {
         }
         addPlayer(r, player, t);
         return true;
-      });
+      }, true);
       return okView(room, player.id, now, await presence(code, player.id, now), { playerId: player.id, token: player.token });
     }
 
@@ -175,12 +184,19 @@ export async function POST(req: Request) {
     const claimedId = typeof body.playerId === "string" ? body.playerId : "";
     const seenForHost = op === "claimHost" ? await presence(code, "", Date.now()) : {};
     let playerId = "";
-    const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
-      const me = findByToken(r, token);
-      if (!me) throw new GoneError("You're no longer in this room", !!claimedId && !r.kicked?.includes(claimedId));
-      playerId = me.id;
-      if (op === "sync") return false;
-      return applyOnce(r, me.id, actionId, op as ActionOp, body, t, CATEGORIES, seenForHost);
+    const run = () =>
+      withRoom(code, body.snapshot, (r, t) => {
+        const me = findByToken(r, token);
+        if (!me) throw new GoneError("You're no longer in this room", !!claimedId && !r.kicked?.includes(claimedId));
+        playerId = me.id;
+        if (op === "sync") return false;
+        return applyOnce(r, me.id, actionId, op as ActionOp, body, t, CATEGORIES, seenForHost);
+      }, op !== "sync");
+    // A lagging read may not include a player who joined a moment ago.
+    const { room, now } = await run().catch(async (err) => {
+      if (!(err instanceof GoneError && err.rejoin)) throw err;
+      await sleep(1000);
+      return run();
     });
     if (op === "leave" || !room.players.some((p) => p.id === playerId)) {
       return reply({ ok: false, error: "You left the room", gone: true });

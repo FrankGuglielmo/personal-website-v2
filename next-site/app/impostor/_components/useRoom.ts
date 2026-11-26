@@ -9,10 +9,11 @@ const sessionKey = (code: string) => `impostor:session:${code}`;
 const snapKey = (code: string) => `impostor:snap:${code}`;
 const LAST_KEY = "impostor:last";
 // The shared store can briefly serve an older room, so a write can be lost to a
-// concurrent one. Actions carry an id; if the room hasn't applied it after
-// RESEND_MS the client sends it again (the server applies each id once).
+// concurrent one. Actions carry an id and stay pending until a response that
+// arrives RESEND_MS after sending still shows them applied; otherwise they are
+// sent again (the server applies each id once).
 const RESEND_MS = 3000;
-const MAX_TRIES = 3;
+const MAX_TRIES = 4;
 const newActionId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 type Pending = { aid: string; op: string; args: Record<string, unknown>; sentAt: number; tries: number };
@@ -80,6 +81,7 @@ export function useRoom() {
   const sessionRef = useRef<Session | null>(null);
   const versionRef = useRef(0);
   const pendingRef = useRef<Pending[]>([]);
+  const acksRef = useRef<string[]>([]);
   const nameRef = useRef("");
   const rejoinRef = useRef<Promise<boolean> | null>(null);
   sessionRef.current = session;
@@ -101,7 +103,11 @@ export function useRoom() {
       setView(res.view);
     }
     const acks = res.view.acks ?? [];
-    if (pendingRef.current.length) pendingRef.current = pendingRef.current.filter((p) => !acks.includes(p.aid));
+    acksRef.current = acks;
+    if (pendingRef.current.length) {
+      const now = Date.now();
+      pendingRef.current = pendingRef.current.filter((p) => !(acks.includes(p.aid) && now - p.sentAt >= RESEND_MS));
+    }
     nameRef.current = res.view.players.find((p) => p.id === res.view.meId)?.name ?? nameRef.current;
     setOffline(false);
     return true;
@@ -194,7 +200,8 @@ export function useRoom() {
           snapshot: snapshotRef.current,
         });
         if (!res.ok) {
-          if (res.error.includes("busy")) return false;
+          // "stale" can come from a lagging read, so those are retried too.
+          if (res.error === "stale" || res.error.includes("busy")) return false;
           drop();
           if (res.gone && op !== "leave" && res.rejoin && (await rejoin(s))) return false;
           if (res.gone) leaveLocal(s.code, op === "leave" ? null : res.error);
@@ -231,7 +238,7 @@ export function useRoom() {
     const now = Date.now();
     for (const p of pendingRef.current) {
       if (now - p.sentAt < RESEND_MS) continue;
-      if (p.tries >= MAX_TRIES) {
+      if (acksRef.current.includes(p.aid) || p.tries >= MAX_TRIES) {
         pendingRef.current = pendingRef.current.filter((x) => x !== p);
         continue;
       }
