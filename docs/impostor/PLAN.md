@@ -24,17 +24,15 @@ Each decision lists the options, then **Default** (what gets built if Frank does
 - C. Both, picked by the host in the lobby.
 - **Default: C, built A-first.** The engine is the same; only the pack shape and the clue phase differ. If time runs short, ship B alone, because it is easier for new players to pick up.
 
-**D2. Number of impostors**
-- A. Always 1.
-- B. Scales with players: 1 for 3–7 players, 2 for 8 or more.
-- C. Host picks 1, 2 or "auto".
-- **Default: C, with "auto" following B.** When there are 2 impostors, they do **not** know about each other (more chaos). That is a toggle.
+**D2. Number of impostors — DECIDED (Frank)**
+- **The host sets the count freely in the lobby** (a stepper), regardless of player count. For example, 2 impostors with 7 players is fine.
+- The only guardrail is that impostors must be fewer than the innocents (with 7 players, up to 3 impostors). The stepper starts at 1 and remembers the host's last choice for the room.
+- Still open, as a toggle: whether multiple impostors know about each other. **Default: they don't know** (more chaos).
 
-**D3. What the impostor knows**
-- A. Nothing: just "You are the Impostor".
-- B. The category only (for example "Food").
-- C. The category plus a vague hint word.
-- **Default: B for word-impostor mode, A for Spyfall mode** (Spyfall shows every possible location to everyone anyway). Host setting.
+**D3. What the impostor knows — DECIDED (Frank)**
+- **Everyone, impostors included, stays in the same category.** The impostor's card shows the round's category (for example "Food" or "Thanksgiving") but not the secret.
+- This applies in both modes. Spyfall locations are grouped into the same categories as the word packs.
+- The last-chance guess list (D8) is drawn only from that category.
 
 **D4. Packs (all original content)**
 - A. One mixed pack.
@@ -61,7 +59,7 @@ Each decision lists the options, then **Default** (what gets built if Frank does
 - **Default: secret vote, tie resolved by one re-vote (still tied means the impostor wins), single vote per round.** Multi-vote (B) is a host toggle, but only when there are 2 impostors.
 
 **D8. Impostor's last-chance guess**
-- A. When caught, the impostor picks the secret from a list of about 10 options (the same pack); a correct pick steals the round.
+- A. When caught, the impostor picks the secret from a list of about 10 options (the same category); a correct pick steals the round.
 - B. Free-text guess, with the host judging it.
 - C. No guess.
 - Also: let the impostor guess **at any time** during discussion (Spyfall rule), which ends the round immediately.
