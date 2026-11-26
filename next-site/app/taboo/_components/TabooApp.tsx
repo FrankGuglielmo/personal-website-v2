@@ -3,17 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import type { CardResult, PlayedView, PublicCard, RoomView, TeamIdx } from "../_lib/types";
-import { ROUND_OPTIONS } from "../_lib/types";
+import { MIN_PER_TEAM, ROUND_OPTIONS, TEAM_COUNT_OPTIONS } from "../_lib/types";
 import { Btn, Panel, Segmented, inputCls } from "./ui";
 import { beep, buzzAlert, keepAwake, timeUpAlert, unlockAudio } from "./feedback";
 import { lastRoomCode, loadSession, useRoom } from "./useRoom";
 
 type Send = (op: string, args?: Record<string, unknown>) => Promise<boolean>;
 
-const TEAM_STYLE: Record<TeamIdx, { text: string; ring: string; dot: string }> = {
-  0: { text: "text-blue-700 [.dark_&]:text-blue-300", ring: "ring-blue-500/60", dot: "bg-blue-500" },
-  1: { text: "text-pink-700 [.dark_&]:text-pink-300", ring: "ring-pink-500/60", dot: "bg-pink-500" },
-};
+const TEAM_STYLE: { text: string; ring: string }[] = [
+  { text: "text-blue-700 [.dark_&]:text-blue-300", ring: "ring-blue-500/60" },
+  { text: "text-pink-700 [.dark_&]:text-pink-300", ring: "ring-pink-500/60" },
+  { text: "text-emerald-700 [.dark_&]:text-emerald-300", ring: "ring-emerald-500/60" },
+  { text: "text-amber-700 [.dark_&]:text-amber-300", ring: "ring-amber-500/60" },
+];
+const teamStyle = (t: TeamIdx) => TEAM_STYLE[t % TEAM_STYLE.length];
+const teams = (view: RoomView): TeamIdx[] => view.teamNames.map((_, t) => t);
 
 const RESULT_STYLE: Record<CardResult, { label: string; cls: string }> = {
   correct: { label: "Correct +1", cls: "bg-emerald-500/20 text-emerald-800 [.dark_&]:text-emerald-200 border-emerald-500/40" },
@@ -22,8 +26,28 @@ const RESULT_STYLE: Record<CardResult, { label: string; cls: string }> = {
 };
 
 const muted = "text-[hsl(var(--color-muted))]";
-const other = (t: TeamIdx): TeamIdx => (t === 0 ? 1 : 0);
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+
+function VipBadge() {
+  return (
+    <span
+      title="VIP host: sets the rules"
+      className="ml-1 inline-flex items-center gap-0.5 rounded-full border border-amber-400/60 bg-amber-300/30 px-1.5 py-px align-middle text-[11px] font-bold uppercase tracking-wide text-amber-800 [.dark_&]:text-amber-200"
+    >
+      <span aria-hidden>👑</span> VIP<span className="sr-only"> host</span>
+    </span>
+  );
+}
+
+function PlayerName({ view, id }: { view: RoomView; id: string | null }) {
+  const p = view.players.find((x) => x.id === id);
+  return (
+    <>
+      {p?.name ?? "someone"}
+      {p && p.id === view.hostId && <VipBadge />}
+    </>
+  );
+}
 
 function useTicker(active: boolean, ms = 200) {
   const [, setN] = useState(0);
@@ -237,24 +261,23 @@ function Scoreboard({ view }: { view: RoomView }) {
   const target = view.settings.winMode === "score" ? `First to ${view.settings.target}` : `${view.settings.target} rounds`;
   return (
     <Panel className="p-3 sm:p-3">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
-        {([0, 1] as TeamIdx[]).map((t) => (
+      <div className={twMerge("mb-1 flex justify-between px-1 text-xs", muted)}>
+        <span>{view.phase !== "over" ? `Round ${Math.min(...view.turnsPlayed) + 1}` : "Final"}</span>
+        <span>{target}</span>
+      </div>
+      <div className={twMerge("grid items-center gap-2 text-center", ["grid-cols-2", "grid-cols-2", "grid-cols-3", "grid-cols-4"][Math.min(3, view.teamNames.length - 1)])}>
+        {teams(view).map((t) => (
           <div
             key={t}
             className={twMerge(
-              "rounded-2xl px-2 py-1",
-              t === 1 && "order-3",
-              view.activeTeam === t && view.phase !== "over" && twMerge("ring-2", TEAM_STYLE[t].ring),
+              "min-w-0 rounded-2xl px-1 py-1",
+              view.activeTeam === t && view.phase !== "over" && twMerge("ring-2", teamStyle(t).ring),
             )}
           >
-            <div className={twMerge("truncate text-sm font-semibold", TEAM_STYLE[t].text)}>{view.teamNames[t]}</div>
+            <div className={twMerge("truncate text-sm font-semibold", teamStyle(t).text)}>{view.teamNames[t]}</div>
             <div className="text-3xl font-bold tabular-nums">{view.scores[t]}</div>
           </div>
         ))}
-        <div className={twMerge("order-2 text-xs", muted)}>
-          {view.phase !== "over" && <div>Round {Math.min(view.turnsPlayed[0], view.turnsPlayed[1]) + 1}</div>}
-          <div>{target}</div>
-        </div>
       </div>
     </Panel>
   );
@@ -263,8 +286,8 @@ function Scoreboard({ view }: { view: RoomView }) {
 function Lobby({ view, send }: { view: RoomView; send: Send }) {
   const isHost = view.me.isHost;
   const [copied, setCopied] = useState(false);
-  const counts = [0, 1].map((t) => view.players.filter((p) => p.team === t).length);
-  const canStart = counts[0] >= 2 && counts[1] >= 2;
+  const counts = teams(view).map((t) => view.players.filter((p) => p.team === t).length);
+  const canStart = counts.every((n) => n >= MIN_PER_TEAM);
   const spectators = view.players.filter((p) => p.team === null);
 
   const share = async () => {
@@ -298,7 +321,7 @@ function Lobby({ view, send }: { view: RoomView; send: Send }) {
       </Panel>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {([0, 1] as TeamIdx[]).map((t) => (
+        {teams(view).map((t) => (
           <Panel key={t} className="space-y-2">
             <TeamName view={view} team={t} send={send} />
             <ul className="space-y-1">
@@ -338,22 +361,14 @@ function Lobby({ view, send }: { view: RoomView; send: Send }) {
         )}
       </Panel>
 
-      {isHost ? <HostSettings view={view} send={send} canStart={canStart} /> : (
-        <Panel className="text-center">
-          <p>Waiting for the host to start…</p>
-          <p className={twMerge("mt-1 text-sm", muted)}>
-            {view.settings.roundSec}s turns · skip {view.settings.skipPenalty ? "-1" : "free"} ·{" "}
-            {view.settings.winMode === "score" ? `first to ${view.settings.target}` : `${view.settings.target} rounds`}
-          </p>
-        </Panel>
-      )}
+      {isHost ? <HostSettings view={view} send={send} canStart={canStart} /> : <RulesReadOnly view={view} />}
       <HowToPlay />
     </>
   );
 }
 
 function TeamName({ view, team, send }: { view: RoomView; team: TeamIdx; send: Send }) {
-  const editable = view.me.isHost || view.me.team === team;
+  const editable = view.me.isHost;
   const [value, setValue] = useState(view.teamNames[team]);
   const [editing, setEditing] = useState(false);
   useEffect(() => {
@@ -363,11 +378,11 @@ function TeamName({ view, team, send }: { view: RoomView; team: TeamIdx; send: S
     setEditing(false);
     if (value.trim() && value.trim() !== view.teamNames[team]) send("setTeamName", { team, name: value });
   };
-  if (!editable) return <h3 className={twMerge("text-lg font-bold", TEAM_STYLE[team].text)}>{view.teamNames[team]}</h3>;
+  if (!editable) return <h3 className={twMerge("text-lg font-bold", teamStyle(team).text)}>{view.teamNames[team]}</h3>;
   return (
     <input
-      aria-label={`Team ${team === 0 ? "A" : "B"} name`}
-      className={twMerge("w-full rounded-xl border border-transparent bg-transparent px-1 text-lg font-bold outline-none focus:border-white/40 focus:bg-white/20", TEAM_STYLE[team].text)}
+      aria-label={`Team ${String.fromCharCode(65 + team)} name`}
+      className={twMerge("w-full rounded-xl border border-transparent bg-transparent px-1 text-lg font-bold outline-none focus:border-white/40 focus:bg-white/20", teamStyle(team).text)}
       value={value}
       maxLength={20}
       onFocus={() => setEditing(true)}
@@ -391,19 +406,30 @@ function PlayerRow({ view, id, send }: { view: RoomView; id: string; send: Send 
         <span className="truncate">
           {p.name}
           {isMe && <span className={muted}> (you)</span>}
-          {p.id === view.hostId && <span className={muted}> · host</span>}
+          {p.id === view.hostId && <VipBadge />}
         </span>
       </span>
       {view.me.isHost && !isMe && (
-        <button
-          type="button"
-          className={twMerge("shrink-0 rounded-lg px-2 py-1 text-xs hover:bg-white/20", muted)}
-          onClick={() => {
-            if (window.confirm(`Remove ${p.name} from the room?`)) send("kick", { playerId: p.id });
-          }}
-        >
-          Remove
-        </button>
+        <span className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            className={twMerge("rounded-lg px-2 py-1 text-xs hover:bg-white/20", muted)}
+            onClick={() => {
+              if (window.confirm(`Make ${p.name} the VIP host? They'll control the rules and you won't.`)) send("transferHost", { playerId: p.id });
+            }}
+          >
+            Make VIP
+          </button>
+          <button
+            type="button"
+            className={twMerge("rounded-lg px-2 py-1 text-xs hover:bg-white/20", muted)}
+            onClick={() => {
+              if (window.confirm(`Remove ${p.name} from the room?`)) send("kick", { playerId: p.id });
+            }}
+          >
+            Remove
+          </button>
+        </span>
       )}
     </li>
   );
@@ -414,7 +440,16 @@ function HostSettings({ view, send, canStart }: { view: RoomView; send: Send; ca
   const set = (patch: Record<string, unknown>) => send("setSettings", patch);
   return (
     <Panel className="space-y-4">
-      <h3 className="font-semibold">Game settings</h3>
+      <h3 className="font-semibold">
+        Game rules <VipBadge />
+      </h3>
+      <p className={twMerge("-mt-2 text-sm", muted)}>Only you can change these. Tap a team name above to rename it.</p>
+      <Segmented
+        label="Number of teams"
+        value={s.teamCount}
+        options={TEAM_COUNT_OPTIONS.map((v) => ({ value: v as number, label: `${v} teams` }))}
+        onChange={(v) => set({ teamCount: v })}
+      />
       <Segmented
         label="Turn length"
         value={s.roundSec}
@@ -459,7 +494,35 @@ function HostSettings({ view, send, canStart }: { view: RoomView; send: Send; ca
       <Btn tone="good" big className="w-full" disabled={!canStart} onClick={() => send("start")}>
         Start game
       </Btn>
-      {!canStart && <p className={twMerge("text-center text-sm", muted)}>Each team needs at least 2 players.</p>}
+      {!canStart && <p className={twMerge("text-center text-sm", muted)}>Each team needs at least {MIN_PER_TEAM} players.</p>}
+    </Panel>
+  );
+}
+
+function RulesReadOnly({ view }: { view: RoomView }) {
+  const s = view.settings;
+  const rows: [string, string][] = [
+    ["Teams", `${s.teamCount}`],
+    ["Turn length", `${s.roundSec}s`],
+    ["Skip penalty", s.skipPenalty ? "-1 point" : "Free"],
+    ["Buzz penalty", "-1 point"],
+    ["Game ends", s.winMode === "score" ? `First to ${s.target} points` : `After ${s.target} rounds`],
+  ];
+  return (
+    <Panel className="space-y-2">
+      <h3 className="font-semibold">Rules</h3>
+      <p className={twMerge("text-sm", muted)}>
+        Set by the VIP host, <PlayerName view={view} id={view.hostId} />.
+      </p>
+      <dl className="divide-y divide-white/20 text-sm">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between py-1.5">
+            <dt className={muted}>{k}</dt>
+            <dd className="font-semibold">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className={twMerge("pt-1 text-center text-sm", muted)}>Waiting for the host to start…</p>
     </Panel>
   );
 }
@@ -473,11 +536,11 @@ function Ready({ view, send }: { view: RoomView; send: Send }) {
   const isGiver = view.clueGiverId === view.me.id;
   const giver = nameOf(view, view.clueGiverId);
   const myRole =
-    isGiver ? null : view.me.team === t ? "You're guessing this turn." : view.me.team === other(t) ? `You're watching: you'll see the card and can buzz ${giver} for slips.` : "You're spectating.";
+    isGiver ? null : view.me.team === t ? "You're guessing this turn." : view.me.team !== null ? `You're watching: you'll see the card and can buzz ${giver} for slips.` : "You're spectating.";
   return (
     <>
       <Panel className="space-y-3 text-center">
-        <div className={twMerge("text-sm font-semibold uppercase tracking-wide", TEAM_STYLE[t].text)}>{view.teamNames[t]}&apos;s turn</div>
+        <div className={twMerge("text-sm font-semibold uppercase tracking-wide", teamStyle(t).text)}>{view.teamNames[t]}&apos;s turn</div>
         {isGiver ? (
           <>
             <h2 className="text-3xl font-bold">You&apos;re the clue-giver!</h2>
@@ -489,7 +552,7 @@ function Ready({ view, send }: { view: RoomView; send: Send }) {
         ) : view.clueGiverId ? (
           <>
             <h2 className="text-2xl font-bold">
-              Ready, {view.teamNames[t]}? Clue-giver: {giver}
+              Ready, {view.teamNames[t]}? Clue-giver: <PlayerName view={view} id={view.clueGiverId} />
             </h2>
             <p className={muted}>{myRole}</p>
             <p className={twMerge("text-sm", muted)}>Waiting for {giver} to start…</p>
@@ -612,7 +675,7 @@ function Active({ view, send, serverNow }: { view: RoomView; send: Send; serverN
 
   const isGiver = view.clueGiverId === view.me.id;
   const t = view.activeTeam;
-  const isWatcher = view.me.team === other(t);
+  const isWatcher = view.me.team !== null && view.me.team !== t;
   const giver = nameOf(view, view.clueGiverId);
   const card = turn.card;
   const act = async (op: string) => {
@@ -630,7 +693,7 @@ function Active({ view, send, serverNow }: { view: RoomView; send: Send; serverN
         <TimerBar remainingMs={remaining} totalMs={view.settings.roundSec * 1000} paused={paused} />
         <div className={twMerge("flex justify-between text-sm", muted)}>
           <span>
-            {view.teamNames[t]} · {giver} giving clues
+            {view.teamNames[t]} · <PlayerName view={view} id={view.clueGiverId} /> giving clues
           </span>
           <span className="font-semibold tabular-nums">This turn {signed(turn.delta)}</span>
         </div>
@@ -730,7 +793,7 @@ function Over({ view, send }: { view: RoomView; send: Send }) {
           🏆
         </div>
         <h2 className="text-3xl font-bold">
-          {w === "tie" || w === null ? "It's a tie!" : <span className={TEAM_STYLE[w].text}>{view.teamNames[w]} wins!</span>}
+          {w === "tie" || w === null ? "It's a tie!" : <span className={teamStyle(w).text}>{view.teamNames[w]} wins!</span>}
         </h2>
         <p className="text-xl tabular-nums">
           {view.scores[0]} – {view.scores[1]}
@@ -756,8 +819,8 @@ function RoomFooter({ view, send }: { view: RoomView; send: Send }) {
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>
           Room <span className="font-mono font-bold tracking-widest">{view.code}</span> · {view.me.name}
-          {myTeam !== null ? <span className={TEAM_STYLE[myTeam].text}> · {view.teamNames[myTeam]}</span> : <span className={muted}> · spectating</span>}
-          {view.me.isHost && <span className={muted}> · host</span>}
+          {myTeam !== null ? <span className={teamStyle(myTeam).text}> · {view.teamNames[myTeam]}</span> : <span className={muted}> · spectating</span>}
+          {view.me.isHost && <VipBadge />}
         </span>
         <button
           type="button"
@@ -769,23 +832,20 @@ function RoomFooter({ view, send }: { view: RoomView; send: Send }) {
           Leave
         </button>
       </div>
-      {inGame && view.phase !== "active" && myTeam !== null && view.me.id !== view.clueGiverId && (
-        <button type="button" className={twMerge("text-sm underline", muted)} onClick={() => send("setTeam", { team: other(myTeam) })}>
-          Switch to {view.teamNames[other(myTeam)]}
-        </button>
-      )}
-      {inGame && myTeam === null && view.phase !== "active" && (
-        <div className="flex gap-2">
-          {([0, 1] as TeamIdx[]).map((t) => (
-            <Btn key={t} className="flex-1 text-sm" onClick={() => send("setTeam", { team: t })}>
-              Join {view.teamNames[t]}
-            </Btn>
-          ))}
+      {inGame && view.phase !== "active" && view.me.id !== view.clueGiverId && (
+        <div className="flex flex-wrap gap-2">
+          {teams(view)
+            .filter((t) => t !== myTeam)
+            .map((t) => (
+              <Btn key={t} className="min-h-[40px] flex-1 text-sm" onClick={() => send("setTeam", { team: t })}>
+                {myTeam === null ? "Join" : "Switch to"} {view.teamNames[t]}
+              </Btn>
+            ))}
         </div>
       )}
       {!view.me.isHost && view.hostAway && (
         <Btn className="w-full text-sm" onClick={() => send("claimHost")}>
-          Host seems away: become host
+          VIP host seems away: become host
         </Btn>
       )}
       {view.me.isHost && inGame && (

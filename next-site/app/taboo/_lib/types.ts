@@ -1,11 +1,13 @@
 // Shared between client and server. Must never import the deck.
 
 export type Phase = "lobby" | "ready" | "active" | "review" | "over";
-export type TeamIdx = 0 | 1;
+/** 0-based team index, `< settings.teamCount`. */
+export type TeamIdx = number;
 export type CardResult = "correct" | "skip" | "buzz";
 export type WinMode = "score" | "rounds";
 
 export type Settings = {
+  teamCount: number;
   roundSec: number;
   skipPenalty: 0 | 1;
   winMode: WinMode;
@@ -33,9 +35,9 @@ export type RoomView = {
   phase: Phase;
   settings: Settings;
   players: PlayerView[];
-  teamNames: [string, string];
-  scores: [number, number];
-  turnsPlayed: [number, number];
+  teamNames: string[];
+  scores: number[];
+  turnsPlayed: number[];
   activeTeam: TeamIdx;
   clueGiverId: string | null;
   turn: {
@@ -71,6 +73,7 @@ export type ActionOp =
   | "toggleResult"
   | "confirmReview"
   | "kick"
+  | "transferHost"
   | "claimHost"
   | "endGame"
   | "newGame"
@@ -87,3 +90,5 @@ export type ApiResponse =
   | { ok: false; error: string; gone?: boolean };
 
 export const ROUND_OPTIONS = [45, 60, 90] as const;
+export const TEAM_COUNT_OPTIONS = [2, 3, 4] as const;
+export const MIN_PER_TEAM = 2;

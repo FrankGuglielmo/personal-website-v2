@@ -38,10 +38,10 @@ export type Room = {
   phase: Phase;
   settings: Settings;
   players: Player[];
-  teamNames: [string, string];
-  scores: [number, number];
-  turnsPlayed: [number, number];
-  rotation: [number, number];
+  teamNames: string[];
+  scores: number[];
+  turnsPlayed: number[];
+  rotation: number[];
   activeTeam: TeamIdx;
   clueGiverId: string | null;
   turn: {
@@ -63,7 +63,28 @@ export type DeckSource = {
 
 export class GameError extends Error {}
 
-export const DEFAULT_SETTINGS: Settings = { roundSec: 60, skipPenalty: 0, winMode: "score", target: 20 };
+export const DEFAULT_SETTINGS: Settings = { teamCount: 2, roundSec: 60, skipPenalty: 0, winMode: "score", target: 20 };
+export const MIN_TEAMS = 2;
+export const MAX_TEAMS = 4;
+export const MIN_PER_TEAM = 2;
+
+export const defaultTeamName = (t: number) => `Team ${String.fromCharCode(65 + t)}`;
+const zeros = (n: number) => Array.from({ length: n }, () => 0);
+const teamList = (room: Room) => Array.from({ length: room.settings.teamCount }, (_, t) => t);
+const validTeam = (room: Room, v: unknown): v is TeamIdx =>
+  typeof v === "number" && Number.isInteger(v) && v >= 0 && v < room.settings.teamCount;
+
+/** Upgrades rooms saved before team counts existed (always 2 teams) and keeps arrays sized to `teamCount`. */
+export function normalizeRoom(room: Room): Room {
+  const count = Math.min(MAX_TEAMS, Math.max(MIN_TEAMS, room.settings.teamCount ?? room.teamNames?.length ?? 2));
+  room.settings = Object.assign(room.settings ?? {}, { ...DEFAULT_SETTINGS, ...room.settings, teamCount: count });
+  const fit = (arr: number[] | undefined) => Array.from({ length: count }, (_, i) => arr?.[i] ?? 0);
+  room.teamNames = Array.from({ length: count }, (_, i) => room.teamNames?.[i] ?? defaultTeamName(i));
+  room.scores = fit(room.scores);
+  room.turnsPlayed = fit(room.turnsPlayed);
+  room.rotation = fit(room.rotation);
+  return room;
+}
 
 export function cleanName(raw: unknown, fallback = "Player"): string {
   const s = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim().slice(0, 20) : "";
@@ -89,10 +110,10 @@ export function createRoom(code: string, host: { id: string; name: string; token
     phase: "lobby",
     settings: { ...DEFAULT_SETTINGS },
     players: [{ id: host.id, name: cleanName(host.name), team: 0, token: host.token, joinedAt: now, lastSeen: now }],
-    teamNames: ["Team A", "Team B"],
-    scores: [0, 0],
-    turnsPlayed: [0, 0],
-    rotation: [0, 0],
+    teamNames: [defaultTeamName(0), defaultTeamName(1)],
+    scores: zeros(2),
+    turnsPlayed: zeros(2),
+    rotation: zeros(2),
     activeTeam: 0,
     clueGiverId: null,
     turn: null,
@@ -108,7 +129,23 @@ export function teamMembers(room: Room, team: TeamIdx): Player[] {
 }
 
 function smallerTeam(room: Room): TeamIdx {
-  return teamMembers(room, 0).length <= teamMembers(room, 1).length ? 0 : 1;
+  let best = 0;
+  for (const t of teamList(room)) if (teamMembers(room, t).length < teamMembers(room, best).length) best = t;
+  return best;
+}
+
+function setTeamCount(room: Room, count: number): void {
+  const n = Math.min(MAX_TEAMS, Math.max(MIN_TEAMS, Math.round(count)));
+  if (n === room.settings.teamCount) return;
+  room.settings.teamCount = n;
+  normalizeRoom(room);
+  room.teamNames = room.teamNames.slice(0, n);
+  for (const p of room.players.slice().sort((a, b) => a.joinedAt - b.joinedAt)) {
+    if (p.team !== null && p.team >= n) {
+      p.team = null;
+      p.team = smallerTeam(room);
+    }
+  }
 }
 
 export function addPlayer(room: Room, p: { id: string; name: string; token: string }, now: number): void {
@@ -170,27 +207,32 @@ export function tick(room: Room, now: number): boolean {
   return false;
 }
 
+/** The single highest-scoring team, or null if the lead is shared. */
+function leader(room: Room): TeamIdx | null {
+  const top = Math.max(...room.scores);
+  const leaders = room.scores.flatMap((s, t) => (s === top ? [t] : []));
+  return leaders.length === 1 ? leaders[0] : null;
+}
+
 function finishByScore(room: Room): void {
-  const [a, b] = room.scores;
-  room.winner = a === b ? "tie" : a > b ? 0 : 1;
+  room.winner = leader(room) ?? "tie";
   room.phase = "over";
   room.turn = null;
   room.clueGiverId = null;
 }
 
 function checkWin(room: Room): boolean {
-  const [ta, tb] = room.turnsPlayed;
-  if (ta !== tb) return false;
+  const turns = room.turnsPlayed[0];
+  if (room.turnsPlayed.some((n) => n !== turns)) return false;
   const { winMode, target } = room.settings;
   if (winMode === "rounds") {
-    if (ta >= target) {
+    if (turns >= target) {
       finishByScore(room);
       return true;
     }
     return false;
   }
-  const [a, b] = room.scores;
-  if (Math.max(a, b) >= target && a !== b) {
+  if (Math.max(...room.scores) >= target && leader(room) !== null) {
     finishByScore(room);
     return true;
   }
@@ -237,7 +279,7 @@ export function applyAction(
       if (targetId !== actorId) needHost();
       const target = room.players.find((p) => p.id === targetId);
       if (!target) throw new GameError("Player not found");
-      const team = args.team === 0 || args.team === 1 ? args.team : null;
+      const team = validTeam(room, args.team) ? args.team : null;
       if (room.phase === "active" && (target.id === room.clueGiverId || target.team === room.activeTeam || team === room.activeTeam)) {
         throw new GameError("Switch teams between turns");
       }
@@ -248,16 +290,17 @@ export function applyAction(
       return;
     }
     case "setTeamName": {
-      const team = args.team === 0 || args.team === 1 ? args.team : null;
-      if (team === null) throw new GameError("Bad team");
-      if (!isHost && actor.team !== team) throw new GameError("Only the host or team members can rename a team");
-      room.teamNames[team] = cleanName(args.name, team === 0 ? "Team A" : "Team B");
+      needHost();
+      if (!validTeam(room, args.team)) throw new GameError("Bad team");
+      room.teamNames[args.team] = cleanName(args.name, defaultTeamName(args.team));
       return;
     }
     case "setSettings": {
       needHost();
       needPhase("lobby", "over");
       const s = room.settings;
+      const teamCount = num(args.teamCount);
+      if (teamCount !== null) setTeamCount(room, teamCount);
       const roundSec = num(args.roundSec);
       if (roundSec !== null) s.roundSec = Math.min(180, Math.max(15, Math.round(roundSec)));
       if (args.skipPenalty === 0 || args.skipPenalty === 1) s.skipPenalty = args.skipPenalty;
@@ -270,18 +313,19 @@ export function applyAction(
       needHost();
       needPhase("lobby", "over");
       const playing = shuffle(room.players.filter((p) => p.team !== null));
-      playing.forEach((p, i) => (p.team = (i % 2) as TeamIdx));
+      playing.forEach((p, i) => (p.team = i % room.settings.teamCount));
       return;
     }
     case "start": {
       needHost();
       needPhase("lobby", "over");
-      if (teamMembers(room, 0).length < 2 || teamMembers(room, 1).length < 2) {
-        throw new GameError("Each team needs at least 2 players");
+      if (teamList(room).some((t) => teamMembers(room, t).length < MIN_PER_TEAM)) {
+        throw new GameError(`Each team needs at least ${MIN_PER_TEAM} players`);
       }
-      room.scores = [0, 0];
-      room.turnsPlayed = [0, 0];
-      room.rotation = [0, 0];
+      const n = room.settings.teamCount;
+      room.scores = zeros(n);
+      room.turnsPlayed = zeros(n);
+      room.rotation = zeros(n);
       room.deck = shuffle(deck.ids());
       room.deckPos = 0;
       room.lastTurn = null;
@@ -313,8 +357,9 @@ export function applyAction(
       if (turn.endsAt == null) throw new GameError("Paused");
       if (turn.currentCardId == null || args.cardId !== turn.currentCardId) throw new GameError("stale");
       if (op === "buzz") {
+        // Any non-active team may buzz; the card-id check above makes the first buzz win.
         const opponent = actor.team !== null && actor.team !== room.activeTeam;
-        if (!opponent && !isClueGiver) throw new GameError("Only the other team can buzz");
+        if (!opponent && !isClueGiver) throw new GameError("Only the other teams can buzz");
       } else if (!isClueGiver) {
         throw new GameError("Only the clue-giver can do that");
       }
@@ -373,7 +418,7 @@ export function applyAction(
       room.rotation[team] += 1;
       room.turn = null;
       if (checkWin(room)) return;
-      room.activeTeam = team === 0 ? 1 : 0;
+      room.activeTeam = (team + 1) % room.settings.teamCount;
       pickClueGiver(room);
       room.phase = "ready";
       return;
@@ -383,6 +428,13 @@ export function applyAction(
       const targetId = typeof args.playerId === "string" ? args.playerId : "";
       if (!targetId || targetId === actorId) throw new GameError("Can't kick that player");
       removePlayer(room, targetId);
+      return;
+    }
+    case "transferHost": {
+      needHost();
+      const target = room.players.find((p) => p.id === args.playerId);
+      if (!target || target.id === actorId) throw new GameError("Pick another player");
+      room.hostId = target.id;
       return;
     }
     case "claimHost": {
@@ -401,8 +453,8 @@ export function applyAction(
       needHost();
       needPhase("over");
       room.phase = "lobby";
-      room.scores = [0, 0];
-      room.turnsPlayed = [0, 0];
+      room.scores = zeros(room.settings.teamCount);
+      room.turnsPlayed = zeros(room.settings.teamCount);
       room.lastTurn = null;
       room.winner = null;
       room.clueGiverId = null;
