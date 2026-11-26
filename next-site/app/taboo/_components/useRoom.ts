@@ -8,6 +8,7 @@ export type Session = { code: string; playerId: string; token: string };
 const sessionKey = (code: string) => `taboo:session:${code}`;
 const snapKey = (code: string) => `taboo:snap:${code}`;
 const LAST_KEY = "taboo:last";
+const MAX_MISSES = 45;
 
 export function loadSession(code: string): Session | null {
   try {
@@ -71,6 +72,7 @@ export function useRoom() {
   const samplesRef = useRef<{ rtt: number; offset: number }[]>([]);
   const sessionRef = useRef<Session | null>(null);
   const versionRef = useRef(0);
+  const missesRef = useRef(0);
   sessionRef.current = session;
 
   const absorb = useCallback((res: ApiResponse, rtt: number, receivedAt: number, s: Session) => {
@@ -99,6 +101,8 @@ export function useRoom() {
     setView(null);
     versionRef.current = 0;
     snapshotRef.current = undefined;
+    missesRef.current = 0;
+    setOffline(false);
     setError(message);
   }, []);
 
@@ -107,7 +111,13 @@ export function useRoom() {
       setBusy(true);
       setError(null);
       try {
-        const { res, rtt, receivedAt } = await post({ op, name, code });
+        let attempt = await post({ op, name, code });
+        // A fresh server instance may not know the room yet; it shows up within a moment.
+        for (let i = 0; i < 4 && !attempt.res.ok && attempt.res.missing; i++) {
+          await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+          attempt = await post({ op, name, code });
+        }
+        const { res, rtt, receivedAt } = attempt;
         if (!res.ok || !res.playerId || !res.token) {
           setError(res.ok ? "Something went wrong" : res.error);
           return;
@@ -144,10 +154,18 @@ export function useRoom() {
       try {
         const { res, rtt, receivedAt } = await post({ op, code: s.code, token: s.token, snapshot: snapshotRef.current, ...args });
         if (!res.ok) {
-          if (res.gone) leaveLocal(s.code, op === "leave" ? null : res.error);
-          else if (res.error !== "stale" && op !== "sync") setError(res.error);
+          if (res.removed || (res.gone && !res.missing)) {
+            leaveLocal(s.code, op === "leave" ? null : res.error);
+          } else if (res.missing) {
+            // Never drop the session on a transient miss: every poll resends the
+            // snapshot, which rebuilds the room on whichever instance answers.
+            missesRef.current += 1;
+            setOffline(true);
+            if (missesRef.current >= MAX_MISSES) leaveLocal(s.code, "This room can't be found anymore. Start or join a new one.");
+          } else if (res.error !== "stale" && op !== "sync") setError(res.error);
           return false;
         }
+        missesRef.current = 0;
         if (op !== "sync") setError(null);
         return absorb(res, rtt, receivedAt, s);
       } catch {
@@ -169,17 +187,19 @@ export function useRoom() {
       timer = setTimeout(() => loop(g), document.hidden ? 5000 : 1000);
     };
     loop(gen);
-    const onVisible = () => {
-      if (!document.hidden) {
-        clearTimeout(timer);
-        loop(++gen);
-      }
+    // iOS freezes background tabs (and may restore them from the back/forward
+    // cache), so resync the moment the page is usable again.
+    const resume = () => {
+      if (document.hidden) return;
+      clearTimeout(timer);
+      loop(++gen);
     };
-    document.addEventListener("visibilitychange", onVisible);
+    const events = ["visibilitychange", "pageshow", "focus", "online"] as const;
+    events.forEach((e) => (e === "visibilitychange" ? document : window).addEventListener(e, resume));
     return () => {
       stopped = true;
       clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisible);
+      events.forEach((e) => (e === "visibilitychange" ? document : window).removeEventListener(e, resume));
     };
   }, [session, send]);
 

@@ -1,56 +1,101 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { getCache } from "@vercel/functions";
 import { ROOM_TTL_MS, type Room } from "./engine";
+import { openRoom as openWithKeys, sealRoom as sealWithKeys, snapshotKeys } from "./snapshot";
 
 export interface RoomStore {
-  readonly kind: "memory" | "redis";
+  /** `redis` is authoritative; the others also hand phones encrypted snapshots as a fallback. */
+  readonly kind: "memory" | "shared" | "redis";
   get(code: string): Promise<Room | null>;
   /** Compare-and-set on `expectedVersion` (null = must not exist). */
   put(room: Room, expectedVersion: number | null): Promise<boolean>;
 }
 
-// ---------- in-memory (default, zero setup) ----------
+const newer = (a: Room | null, b: Room | null) => (!a ? b : !b ? a : a.version >= b.version ? a : b);
+
+// ---------- per-instance memory ----------
 
 type MemState = { rooms: Map<string, Room> };
 const g = globalThis as unknown as { __tabooRooms?: MemState };
 const mem: MemState = g.__tabooRooms ?? (g.__tabooRooms = { rooms: new Map() });
 const MAX_MEM_ROOMS = 200;
 
-function sweep(now: number) {
-  for (const [code, room] of mem.rooms) {
-    if (now - room.updatedAt > ROOM_TTL_MS) mem.rooms.delete(code);
+function memGet(code: string): Room | null {
+  const room = mem.rooms.get(code);
+  if (!room) return null;
+  if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
+    mem.rooms.delete(code);
+    return null;
   }
-  if (mem.rooms.size > MAX_MEM_ROOMS) {
-    const oldest = [...mem.rooms.values()].sort((a, b) => a.updatedAt - b.updatedAt);
-    for (const r of oldest.slice(0, mem.rooms.size - MAX_MEM_ROOMS)) mem.rooms.delete(r.code);
-  }
+  return room;
+}
+
+function memSet(room: Room) {
+  mem.rooms.set(room.code, structuredClone(room));
+  if (mem.rooms.size <= MAX_MEM_ROOMS) return;
+  const oldest = [...mem.rooms.values()].sort((a, b) => a.updatedAt - b.updatedAt);
+  for (const r of oldest.slice(0, mem.rooms.size - MAX_MEM_ROOMS)) mem.rooms.delete(r.code);
 }
 
 const memoryStore: RoomStore = {
   kind: "memory",
   async get(code) {
-    const room = mem.rooms.get(code);
-    if (!room) return null;
-    if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
-      mem.rooms.delete(code);
-      return null;
-    }
-    return structuredClone(room);
+    const room = memGet(code);
+    return room ? structuredClone(room) : null;
   },
   async put(room, expectedVersion) {
-    const cur = mem.rooms.get(room.code);
-    if ((cur ? cur.version : null) !== expectedVersion) return false;
-    mem.rooms.set(room.code, structuredClone(room));
-    sweep(Date.now());
+    if ((memGet(room.code)?.version ?? null) !== expectedVersion) return false;
+    memSet(room);
     return true;
   },
 };
 
-/** Lets clients re-seed an instance that lost (or never had) the room. */
-export async function adoptSnapshot(room: Room): Promise<void> {
-  const cur = mem.rooms.get(room.code);
-  if (cur && cur.version >= room.version) return;
-  if (Date.now() - room.updatedAt > ROOM_TTL_MS) return;
-  mem.rooms.set(room.code, structuredClone(room));
+// ---------- Vercel Runtime Cache (shared by every instance in a region) ----------
+
+// Free on Hobby within the monthly allotment; if it is paused or unavailable,
+// reads return null and writes are skipped, which degrades to memory + snapshots.
+function sharedStore(): RoomStore {
+  const cache = getCache({ namespace: "taboo" });
+  const key = (code: string) => `room:${code}`;
+  type Entry = { w: string; room: Room };
+  const readEntry = async (code: string): Promise<Entry | null> => {
+    try {
+      const raw = await cache.get(key(code));
+      const entry = typeof raw === "string" ? (JSON.parse(raw) as Entry) : null;
+      return entry?.room && Date.now() - entry.room.updatedAt <= ROOM_TTL_MS ? entry : null;
+    } catch {
+      return null;
+    }
+  };
+  const read = async (code: string) => (await readEntry(code))?.room ?? null;
+  return {
+    kind: "shared",
+    async get(code) {
+      const best = newer(await read(code), memGet(code));
+      if (!best) return null;
+      if (best !== memGet(code)) memSet(best);
+      return structuredClone(best);
+    },
+    async put(room, expectedVersion) {
+      const current = newer(await read(room.code), memGet(room.code));
+      if ((current?.version ?? null) !== expectedVersion) return false;
+      memSet(room);
+      const w = randomUUID();
+      try {
+        await cache.set(key(room.code), JSON.stringify({ w, room } satisfies Entry), { ttl: Math.round(ROOM_TTL_MS / 1000), name: "taboo-room" });
+      } catch {
+        return true;
+      }
+      // The cache has no compare-and-set, so two instances can both pass the version
+      // check; the one whose write didn't stick adopts the winner's state and retries.
+      const back = await readEntry(room.code);
+      if (back && back.w !== w && back.room.version >= room.version) {
+        memSet(back.room);
+        return false;
+      }
+      return true;
+    },
+  };
 }
 
 // ---------- Upstash Redis over REST (optional) ----------
@@ -102,34 +147,32 @@ export function getStore(): RoomStore {
   if (cached) return cached;
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  cached = url && token ? redisStore(url, token) : memoryStore;
+  if (url && token) cached = redisStore(url, token);
+  else {
+    try {
+      cached = sharedStore();
+    } catch {
+      cached = memoryStore;
+    }
+  }
   return cached;
+}
+
+/** Re-seeds the store from a phone's snapshot when it is newer than what the store has. */
+export async function adoptSnapshot(room: Room): Promise<void> {
+  const store = getStore();
+  if (store.kind === "redis" || Date.now() - room.updatedAt > ROOM_TTL_MS) return;
+  for (let i = 0; i < 3; i++) {
+    const cur = await store.get(room.code);
+    if (cur && cur.version >= room.version) return;
+    if (await store.put(room, cur ? cur.version : null)) return;
+  }
 }
 
 // ---------- encrypted snapshots ----------
 
-function key(): Buffer {
-  const seed = process.env.TABOO_SECRET || `taboo:${process.env.VERCEL_DEPLOYMENT_ID ?? ""}:${process.env.VERCEL_URL ?? "local"}`;
-  return createHash("sha256").update(seed).digest();
-}
+let keys: Buffer[] | null = null;
+const getKeys = () => (keys ??= snapshotKeys(process.env));
 
-export function sealRoom(room: Room): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key(), iv);
-  const body = Buffer.concat([cipher.update(JSON.stringify(room), "utf8"), cipher.final()]);
-  return Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
-}
-
-export function openRoom(snapshot: unknown, code: string): Room | null {
-  if (typeof snapshot !== "string" || snapshot.length > 200_000) return null;
-  try {
-    const buf = Buffer.from(snapshot, "base64url");
-    const decipher = createDecipheriv("aes-256-gcm", key(), buf.subarray(0, 12));
-    decipher.setAuthTag(buf.subarray(12, 28));
-    const json = Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
-    const room = JSON.parse(json) as Room;
-    return room.code === code ? room : null;
-  } catch {
-    return null;
-  }
-}
+export const sealRoom = (room: Room) => sealWithKeys(room, getKeys());
+export const openRoom = (snapshot: unknown, code: string) => openWithKeys(snapshot, code, getKeys());

@@ -12,9 +12,10 @@ import type {
 } from "../../../taboo/_lib/types";
 
 export const GRACE_MS = 750;
-export const HOST_AWAY_MS = 45_000;
-export const ONLINE_MS = 12_000;
-export const TOUCH_MS = 8_000;
+// Long enough that locking a phone or switching apps never hands VIP to someone else.
+export const HOST_AWAY_MS = 3 * 60_000;
+export const ONLINE_MS = 50_000;
+export const TOUCH_MS = 20_000;
 export const MAX_PLAYERS = 24;
 export const ROOM_TTL_MS = 8 * 60 * 60 * 1000;
 
