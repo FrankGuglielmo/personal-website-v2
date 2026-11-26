@@ -1,7 +1,17 @@
 // Run: node --test app/api/codenames/_lib/engine.test.mjs   (Node 22.18+, type stripping)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BOARD_AWAY_MS, GameError, addPlayer, applyAction, createRoom, remaining, viewFor } from "./engine.ts";
+import {
+  BOARD_AWAY_MS,
+  GameError,
+  ONLINE_MS,
+  addPlayer,
+  applyAction,
+  applyPresence,
+  createRoom,
+  remaining,
+  viewFor,
+} from "./engine.ts";
 
 const WORDS = Array.from({ length: 60 }, (_, i) => `Word${i}`);
 const words = () => WORDS;
@@ -146,4 +156,40 @@ test("new game keeps teams and avoids recently used words", () => {
   assert.equal(room.gameNo, 2);
   assert.ok(room.words.every((w) => !first.has(w)));
   assert.equal(room.players.find((p) => p.id === "bs").role, "spymaster");
+});
+
+test("rejoining under the same name takes back the old seat instead of duplicating", () => {
+  const { room, now } = setup();
+  const later = now + ONLINE_MS + 1;
+  const back = addPlayer(room, { id: "new", name: "BS", token: "fresh" }, later);
+  assert.equal(back.id, "bs");
+  assert.equal(back.token, "fresh");
+  assert.equal(back.team, "blue");
+  assert.equal(back.role, "spymaster");
+  assert.equal(room.players.filter((p) => p.name.toLowerCase() === "bs").length, 1);
+  assert.equal(room.players.length, 5);
+});
+
+test("a second person with an online player's name gets a numbered name", () => {
+  const { room, now } = setup();
+  const other = addPlayer(room, { id: "x", name: "bs", token: "tx" }, now + 1);
+  assert.equal(other.id, "x");
+  assert.equal(other.name, "bs 2");
+  assert.equal(addPlayer(room, { id: "y", name: "bs", token: "ty" }, now + 2).name, "bs 3");
+});
+
+test("nobody can take over the TV board's seat by joining with its name", () => {
+  const { room, now } = setup();
+  const p = addPlayer(room, { id: "z", name: "TV board", token: "tz" }, now + ONLINE_MS * 10);
+  assert.equal(p.id, "z");
+  assert.equal(room.players.find((x) => x.id === "tv").token, "ttv");
+});
+
+test("presence kept outside the room keeps players online", () => {
+  const { room, now } = setup();
+  const later = now + ONLINE_MS * 3;
+  applyPresence(room, { bs: later - 1000, bo: 5 });
+  const view = viewFor(room, "tv", later);
+  assert.equal(view.players.find((p) => p.id === "bs").online, true);
+  assert.equal(view.players.find((p) => p.id === "bo").online, false);
 });

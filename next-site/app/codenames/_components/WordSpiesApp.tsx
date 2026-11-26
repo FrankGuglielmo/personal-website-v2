@@ -349,12 +349,12 @@ function TeamColumns({ view, send }: { view: RoomView; send: Send }) {
   const order = (a: PlayerView, b: PlayerView) => (a.role === "spymaster" ? -1 : b.role === "spymaster" ? 1 : 0);
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
         {TEAMS.map((t) => {
           const members = people.filter((p) => p.team === t).sort(order);
           const hasSpy = members.some((p) => p.role === "spymaster");
           return (
-            <div key={t} className={twMerge("rounded-2xl border p-3", t === "blue" ? "border-blue-500/50 bg-blue-500/10" : "border-rose-500/50 bg-rose-500/10")}>
+            <div key={t} className={twMerge("min-w-0 rounded-2xl border p-3", t === "blue" ? "border-blue-500/50 bg-blue-500/10" : "border-rose-500/50 bg-rose-500/10")}>
               <div className={twMerge("mb-1 flex items-baseline justify-between font-bold", teamText[t])}>
                 <span>{TEAM_LABEL[t]}</span>
                 <span className="text-xs font-medium">{members.length}</span>
@@ -382,19 +382,19 @@ function BoardLobby({ view, send, room }: { view: RoomView; send: Send; room: Ro
   useEffect(() => setHost(joinUrl()), []);
   const missing = TEAMS.filter((t) => !view.players.some((p) => p.team === t && p.role === "spymaster"));
   return (
-    <main className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-4 p-4 md:grid-cols-[1fr_1.2fr] landscape:grid-cols-[1fr_1.2fr]">
-      <Panel className="flex flex-col items-center justify-center gap-3 text-center">
+    <main className="mx-auto grid w-full min-w-0 max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] content-center gap-4 p-3 sm:p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] landscape:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <Panel className="flex min-w-0 flex-col items-center justify-center gap-3 text-center">
         <div className="flex w-full items-center justify-between">
           <Title small />
           <ThemeToggle />
         </div>
         <p className={muted}>On your phone, go to</p>
-        <p className="text-2xl font-bold">{host}</p>
+        <p className="max-w-full break-all text-lg font-bold sm:text-2xl">{host}</p>
         <p className={muted}>and enter the code</p>
         <p className="font-mono text-[clamp(3rem,12vmin,7rem)] font-black leading-none tracking-[0.25em]">{view.code}</p>
         <p className={twMerge("text-sm", muted)}>Spymasters must join. Everyone else can join or just watch the TV.</p>
       </Panel>
-      <Panel className="flex flex-col gap-4">
+      <Panel className="flex min-w-0 flex-col gap-4">
         <TeamColumns view={view} send={send} />
         <div>
           <div className={twMerge("mb-1 text-sm", muted)}>Word pack</div>
