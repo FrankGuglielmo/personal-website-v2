@@ -6,15 +6,15 @@
 
 | Store | When | Needs | Robustness |
 | --- | --- | --- | --- |
-| **In-memory + encrypted client snapshots** (default) | No env vars set | Nothing; works on the project as-is | Good for a few rooms. State lives in the function instance's memory, and every client also holds an encrypted copy of the room, so a cold or recycled instance rebuilds the room on the next poll. Weak spot: if Vercel runs two instances at once, players on different instances can briefly disagree. That is unlikely at a few requests per second. |
+| **Vercel Runtime Cache + memory + encrypted client snapshots** (default) | No env vars set | `@vercel/functions` `getCache`, included on every plan; no account or integration | Every request reads the room from the regional Runtime Cache (shared by all instances) and every mutation writes it back after a version check, so a stale instance can't overwrite newer state. The cache has no compare-and-set, so each write carries a nonce and is read back; a write that lost a race adopts the winner and retries. Phones also hold an encrypted copy of the room, which rebuilds it if the cache is evicted, paused or unavailable. Without Vercel (`next dev`) the cache falls back to per-process memory. |
 | **Upstash Redis free plan** (optional upgrade) | `KV_REST_API_URL` + `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`) set | Frank adds the free Upstash Redis integration from the Vercel Marketplace (Storage tab). That creates an Upstash-linked resource, so it counts as a new account. No card is needed. | Fully shared state with compare-and-set writes. Correct even across many instances. |
 
-No new npm dependencies: Upstash is called over its REST API with `fetch`, and encryption uses `node:crypto`.
+One npm dependency, `@vercel/functions` (Vercel's own runtime helpers, for `getCache`). Upstash is called over its REST API with `fetch`, and encryption uses `node:crypto`.
 
 ## 1. Rules
 
 - **Teams:** 2, 3 or 4 teams (default 2), set by the host, with names only the host can edit (defaults Team A to Team D). Players pick a team in the lobby, or the host shuffles them. You need at least 2 players per team to start. Teams take turns in order. Odd team sizes are fine: each team has its own clue-giver rotation, so members of a smaller team give clues more often. Rooms saved before team counts existed are upgraded to 2 teams on load.
-- **VIP host:** the room creator is the VIP host (crown badge everywhere their name appears). Only the host can change the rules (team count, team names, turn length, skip penalty, win mode and target), shuffle teams, kick, and start, end or restart the game; the server enforces this. Non-hosts see the rules read-only. The host can hand VIP to another player, and anyone can claim it if the host has been gone 45 s.
+- **VIP host:** the room creator is the VIP host (crown badge everywhere their name appears). Only the host can change the rules (team count, team names, turn length, skip penalty, win mode and target), shuffle teams, kick, and start, end or restart the game; the server enforces this. Non-hosts see the rules read-only. The host can hand VIP to another player, and anyone can claim it only after the host has been gone 3 minutes, so a locked phone or a quick trip to another app never costs the host the crown.
 - **Turn:** teams alternate. The clue-giver rotates through each team in join order. The "Ready" screen shows everyone who is up, and the clue-giver (or host) taps Start.
 - **Roles during a turn:**
   - **Clue-giver** sees the card (target word plus 5 forbidden words) and the buttons Correct (+1), Skip (penalty 0 or -1, set in setup), and Undo.
@@ -34,22 +34,24 @@ No new npm dependencies: Upstash is called over its REST API with `fetch`, and e
 - **Single route file** (`app/api/taboo/route.ts`): Vercel may give each route file its own function, so all room operations go through one handler to share memory.
 - **Authoritative state machine:** the reducer is a pure function in `app/api/taboo/_lib/engine.ts`. Every request runs `tick(now)` first, which handles lazy time-up. It then applies the action and returns `viewFor(player)`.
 - **Clock skew:** each response includes `serverNow`. The client keeps `offset = serverNow - (receivedAt - rtt/2)` and renders `endsAt - (Date.now() + offset)`.
-- **Card secrecy:** the deck is only imported by server code. Guessers' views have `card: null`, and the played-card words are only revealed in review. The client snapshot is AES-256-GCM encrypted with a server key: `TABOO_SECRET` if set, otherwise derived from the deployment id. The repo is public, so set `TABOO_SECRET` for real secrecy. Without it a determined player could, in theory, decrypt their own snapshot.
+- **Card secrecy:** the deck is only imported by server code. Guessers' views have `card: null`, and the played-card words are only revealed in review. The client snapshot is AES-256-GCM encrypted with a server key: `TABOO_SECRET` if set, otherwise derived from the project id, which stays the same across deploys. Servers try every known key when opening a snapshot, so snapshots sealed by an older deployment, or before `TABOO_SECRET` was added, still open. The repo is public, so set `TABOO_SECRET` for real secrecy. Without it a determined player could, in theory, decrypt their own snapshot.
 
 ## 3. Room lifecycle
 
 - **Room codes:** 4 letters with no I or O. The share link is `/taboo?room=CODE`, shared with the native share sheet or a copy button. QR codes are deferred.
 - **Join and rejoin:** joining returns `{playerId, token}`, which is saved in `localStorage` per room. A refresh or a sleeping phone resumes automatically. Polling slows down while the tab is hidden, and a Wake Lock keeps the screen on where supported.
 - **Late joiners** go to the smaller team and join that team's rotation at the end of the order.
-- **Host leaving:** if the host hasn't been seen for 45 s, any player can tap "Become host". There is no automatic migration.
+- **Host leaving:** if the host hasn't been seen for 3 minutes, any player can tap "Become host". There is no automatic migration.
+- **Leaving the tab, locking the phone, redeploys:** nothing a phone does in the background ends a room or removes a player. Players are only removed by the host's Remove or their own Leave, and only the host's End game or New game ends a game. While a phone is away it shows "Reconnecting…" and keeps its session. When it comes back (`visibilitychange`, `pageshow`, `focus`, `online`) it resyncs at once. If the server answers "room missing", the client keeps retrying with its snapshot, which rebuilds the room on whichever instance answers; it only gives up after about 45 consecutive misses (no usable copy anywhere).
+- **Why this matters (the Nov 26 bug):** production runs several function instances. Rooms lived only in each instance's memory, and the snapshot key was tied to the deployment. Two redeploys landed mid-game, so the new instances had no room and couldn't read any phone's snapshot. The server answered "Room not found", and the client treated that as final: it erased the session and dropped every phone to the start screen. That looked like "leaving Safari ended the room". Fixed by the shared Runtime Cache store, deploy-stable snapshot keys, separating "room missing" (retry) from "you were removed" (leave), and the 3-minute VIP claim.
 - **Kick:** the host can remove a player.
-- **Expiry:** rooms expire 8 h after the last write (Redis `EX`, or a memory sweep).
+- **Expiry:** rooms expire 8 h after the last write (Runtime Cache TTL, Redis `PX`, or a memory sweep).
 - **Abuse (brief):** caps on names (20 characters), players (24) and rooms in memory (200). There is no rate limiting.
 
 ## 4. Data model and protocol
 
 - **Room data:** code, version, host id and phase (`lobby`, `ready`, `active`, `review`, `over`). Settings are round length, skip penalty, win mode and target. Then the players (id, name, team, token, joined-at, last-seen), team names, scores, turns played, rotation indexes, active team, clue-giver, turn data (`endsAt`, paused-remaining, played cards), deck order and position, last turn, and winner.
-- **Protocol:** `POST /api/taboo` with body `{op, code?, token?, snapshot?, ...}`. The `op` is one of: `create`, `join`, `sync` (the poll), `setTeam`, `setTeamName`, `setSettings`, `shuffleTeams`, `start`, `beginTurn`, `correct`, `skip`, `buzz`, `undo`, `pause`, `resume`, `toggleResult`, `confirmReview`, `kick`, `claimHost`, `endGame`, `newGame` or `leave`. The response is `{view, snapshot?}` or `{error}`.
+- **Protocol:** `POST /api/taboo` with body `{op, code?, token?, snapshot?, ...}`. The `op` is one of: `create`, `join`, `sync` (the poll), `setTeam`, `setTeamName`, `setSettings`, `shuffleTeams`, `start`, `beginTurn`, `correct`, `skip`, `buzz`, `undo`, `pause`, `resume`, `toggleResult`, `confirmReview`, `kick`, `claimHost`, `transferHost`, `endGame`, `newGame` or `leave`. The response is `{view, snapshot?}` or `{error}`.
 - **State machine:** `lobby →start→ ready →beginTurn→ active (⇄ paused) →time-up→ review →confirm→ ready … → over →newGame→ lobby`.
 
 ## 5. Deck
@@ -76,6 +78,7 @@ Assumed usage: 3 parties a month × 2 rooms × 2 h × 10 phones polling at 1 Hz 
 | Vercel function invocations, 1M/month | ~430K (43%) | Hobby never bills; functions pause until the 30-day window resets. The rest of the site is static and keeps working. |
 | Vercel Active CPU, 4 h/month | ~430K × ~5 ms ≈ 36 min (15%) | Same as above. |
 | Vercel provisioned memory, 360 GB-h | ~12–24 GB-h (≤7%) | Same as above. |
+| Vercel Runtime Cache (Hobby allowance) | ~1 read per request plus a read-back per write ≈ 460K reads; writes on each action plus a presence write per player every 20 s ≈ 30K | Hobby never bills; the cache pauses and rooms keep working from memory and phone snapshots. |
 | Upstash free (only if added), 500K commands/month | ~1 read + occasional writes per poll ≈ 450K (90%) | Requests are rejected and there is no card on file, so no charge. To add headroom, add an in-instance 1 s read cache, which cuts reads several-fold (Phase 2). |
 
 To protect the margin, polling drops to 1 per 5 s while a tab is hidden.
