@@ -1,52 +1,57 @@
-import { randomUUID } from "node:crypto";
 import { getCache } from "@vercel/functions";
-import { ROOM_TTL_MS, type Room } from "./engine";
+import { ROOM_TTL_MS, normalizeRoom, repairRoom, type Room } from "./engine";
+import { mergeRooms } from "./merge";
 import { openRoom as openWithKeys, sealRoom as sealWithKeys, snapshotKeys } from "./snapshot";
 
+// Rooms live in a store shared by every function instance (Vercel Runtime
+// Cache in production). That cache can briefly serve stale copies and has no
+// compare-and-set, so the route never trusts a single read: it merges the
+// shared copy, this instance's last-known copy and the caller's snapshot
+// (see merge.ts).
 export interface RoomStore {
-  /** `redis` is authoritative; the others also hand phones encrypted snapshots as a fallback. */
+  /** `redis` is always current; the others also hand phones encrypted snapshots as a fallback. */
   readonly kind: "memory" | "shared" | "redis";
   get(code: string): Promise<Room | null>;
-  /** Compare-and-set on `expectedVersion` (null = must not exist). */
-  put(room: Room, expectedVersion: number | null): Promise<boolean>;
+  set(room: Room): Promise<void>;
 }
 
-const newer = (a: Room | null, b: Room | null) => (!a ? b : !b ? a : a.version >= b.version ? a : b);
+const fresh = (room: Room | null | undefined, now = Date.now()): room is Room => !!room && now - room.updatedAt <= ROOM_TTL_MS;
 
-// ---------- per-instance memory ----------
+// ---------- this instance's last-known copy of each room ----------
 
 type MemState = { rooms: Map<string, Room> };
 const g = globalThis as unknown as { __tabooRooms?: MemState };
 const mem: MemState = g.__tabooRooms ?? (g.__tabooRooms = { rooms: new Map() });
 const MAX_MEM_ROOMS = 200;
 
-function memGet(code: string): Room | null {
-  const room = mem.rooms.get(code);
-  if (!room) return null;
-  if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
-    mem.rooms.delete(code);
-    return null;
-  }
-  return room;
-}
-
-function memSet(room: Room) {
-  mem.rooms.set(room.code, structuredClone(room));
+function sweep(now: number) {
+  for (const [code, room] of mem.rooms) if (!fresh(room, now)) mem.rooms.delete(code);
   if (mem.rooms.size <= MAX_MEM_ROOMS) return;
   const oldest = [...mem.rooms.values()].sort((a, b) => a.updatedAt - b.updatedAt);
   for (const r of oldest.slice(0, mem.rooms.size - MAX_MEM_ROOMS)) mem.rooms.delete(r.code);
 }
 
+export function recallLocal(code: string): Room | null {
+  const room = mem.rooms.get(code);
+  return fresh(room) ? structuredClone(room) : null;
+}
+
+export function rememberLocal(room: Room) {
+  const cur = mem.rooms.get(room.code);
+  mem.rooms.set(room.code, (fresh(cur) && mergeRooms([normalizeRoom(cur), room], (r) => repairRoom(normalizeRoom(r)))) || structuredClone(room));
+  sweep(Date.now());
+}
+
+// ---------- in-memory (local dev) ----------
+
 const memoryStore: RoomStore = {
   kind: "memory",
   async get(code) {
-    const room = memGet(code);
-    return room ? structuredClone(room) : null;
+    return recallLocal(code);
   },
-  async put(room, expectedVersion) {
-    if ((memGet(room.code)?.version ?? null) !== expectedVersion) return false;
-    memSet(room);
-    return true;
+  async set(room) {
+    mem.rooms.set(room.code, structuredClone(room));
+    sweep(Date.now());
   },
 };
 
@@ -57,56 +62,26 @@ const memoryStore: RoomStore = {
 function sharedStore(): RoomStore {
   const cache = getCache({ namespace: "taboo" });
   const key = (code: string) => `room:${code}`;
-  type Entry = { w: string; room: Room };
-  const readEntry = async (code: string): Promise<Entry | null> => {
-    try {
-      const raw = await cache.get(key(code));
-      const entry = typeof raw === "string" ? (JSON.parse(raw) as Entry) : null;
-      return entry?.room && Date.now() - entry.room.updatedAt <= ROOM_TTL_MS ? entry : null;
-    } catch {
-      return null;
-    }
-  };
-  const read = async (code: string) => (await readEntry(code))?.room ?? null;
   return {
     kind: "shared",
     async get(code) {
-      const best = newer(await read(code), memGet(code));
-      if (!best) return null;
-      if (best !== memGet(code)) memSet(best);
-      return structuredClone(best);
-    },
-    async put(room, expectedVersion) {
-      const current = newer(await read(room.code), memGet(room.code));
-      if ((current?.version ?? null) !== expectedVersion) return false;
-      memSet(room);
-      const w = randomUUID();
       try {
-        await cache.set(key(room.code), JSON.stringify({ w, room } satisfies Entry), { ttl: Math.round(ROOM_TTL_MS / 1000), name: "taboo-room" });
+        const raw = await cache.get(key(code));
+        const entry = typeof raw === "string" ? (JSON.parse(raw) as { room?: Room }) : null;
+        return fresh(entry?.room) ? entry.room : null;
       } catch {
-        return true;
+        return null;
       }
-      // The cache has no compare-and-set, so two instances can both pass the version
-      // check; the one whose write didn't stick adopts the winner's state and retries.
-      const back = await readEntry(room.code);
-      if (back && back.w !== w && back.room.version >= room.version) {
-        memSet(back.room);
-        return false;
-      }
-      return true;
+    },
+    async set(room) {
+      try {
+        await cache.set(key(room.code), JSON.stringify({ room }), { ttl: Math.round(ROOM_TTL_MS / 1000), name: "taboo-room" });
+      } catch {}
     },
   };
 }
 
-// ---------- Upstash Redis over REST (optional) ----------
-
-const CAS_SCRIPT = `
-local cur = redis.call('GET', KEYS[1])
-if cur then
-  if ARGV[2] == 'new' or tostring(cjson.decode(cur).version) ~= ARGV[2] then return 0 end
-elseif ARGV[2] ~= 'new' then return 0 end
-redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[3])
-return 1`;
+// ---------- Upstash Redis over REST (only if already configured) ----------
 
 function redisStore(url: string, token: string): RoomStore {
   const call = async (cmd: (string | number)[]) => {
@@ -127,17 +102,8 @@ function redisStore(url: string, token: string): RoomStore {
       const raw = await call(["GET", key(code)]);
       return typeof raw === "string" ? (JSON.parse(raw) as Room) : null;
     },
-    async put(room, expectedVersion) {
-      const ok = await call([
-        "EVAL",
-        CAS_SCRIPT,
-        1,
-        key(room.code),
-        JSON.stringify(room),
-        expectedVersion === null ? "new" : String(expectedVersion),
-        ROOM_TTL_MS,
-      ]);
-      return ok === 1;
+    async set(room) {
+      await call(["SET", key(room.code), JSON.stringify(room), "PX", ROOM_TTL_MS]);
     },
   };
 }
@@ -148,25 +114,9 @@ export function getStore(): RoomStore {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (url && token) cached = redisStore(url, token);
-  else {
-    try {
-      cached = sharedStore();
-    } catch {
-      cached = memoryStore;
-    }
-  }
+  else if (process.env.VERCEL) cached = sharedStore();
+  else cached = memoryStore;
   return cached;
-}
-
-/** Re-seeds the store from a phone's snapshot when it is newer than what the store has. */
-export async function adoptSnapshot(room: Room): Promise<void> {
-  const store = getStore();
-  if (store.kind === "redis" || Date.now() - room.updatedAt > ROOM_TTL_MS) return;
-  for (let i = 0; i < 3; i++) {
-    const cur = await store.get(room.code);
-    if (cur && cur.version >= room.version) return;
-    if (await store.put(room, cur ? cur.version : null)) return;
-  }
 }
 
 // ---------- encrypted snapshots ----------

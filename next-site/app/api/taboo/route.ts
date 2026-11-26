@@ -9,13 +9,15 @@ import {
   createRoom,
   findByToken,
   normalizeRoom,
+  repairRoom,
   tick,
   touch,
   viewFor,
   type DeckSource,
   type Room,
 } from "./_lib/engine";
-import { adoptSnapshot, getStore, openRoom, sealRoom } from "./_lib/store";
+import { covers, mergeRooms, stampChanges } from "./_lib/merge";
+import { getStore, openRoom, recallLocal, rememberLocal, sealRoom } from "./_lib/store";
 
 // Every room operation lives in this one handler so they share a function
 // instance (and its memory) when no Redis store is configured.
@@ -60,33 +62,44 @@ class MissingRoomError extends Error {}
 /** The player was kicked or left. Clients drop their session. */
 class RemovedError extends Error {}
 
-/** Loads a room, runs `fn`, and saves with compare-and-set, retrying on races. */
-async function withRoom<T>(
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const upgrade = (r: Room | null) => (r ? normalizeRoom(r) : null);
+const merge = (rooms: (Room | null)[]) => mergeRooms(rooms, (r) => repairRoom(normalizeRoom(r)));
+
+/**
+ * Builds the room from every copy this request can see (shared store, this
+ * instance's memory, the caller's snapshot), runs `fn`, and writes the result
+ * back whenever the shared copy is missing anything or presence is due.
+ * See merge.ts for why there is no compare-and-set.
+ */
+async function withRoom(
   code: string,
   snapshot: unknown,
-  fn: (room: Room, now: number) => { changed: boolean; result: T },
-): Promise<{ room: Room; now: number; result: T }> {
+  fn: (room: Room, now: number) => { changed: boolean; seen?: boolean },
+): Promise<{ room: Room; now: number }> {
   const store = getStore();
-  if (store.kind !== "redis") {
-    const snap = openRoom(snapshot, code);
-    if (snap) await adoptSnapshot(normalizeRoom(snap));
+  const snap = upgrade(openRoom(snapshot, code));
+  let stored = upgrade(await store.get(code));
+  let room = merge([stored, upgrade(recallLocal(code)), snap]);
+  // A missing room can be a brief cache miss; look again before giving up.
+  for (let i = 0; !room && i < 3; i++) {
+    await sleep(150 + i * 150);
+    stored = upgrade(await store.get(code));
+    room = merge([stored, upgrade(recallLocal(code))]);
   }
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const stored = await store.get(code);
-    if (!stored) throw new MissingRoomError("Room not found. It may have expired.");
-    const room = normalizeRoom(stored);
-    const before = room.version;
-    const now = Date.now();
-    const ticked = tick(room, now);
-    const { changed, result } = fn(room, now);
-    if (ticked || changed) {
-      room.version = before + 1;
-      room.updatedAt = now;
-      if (!(await store.put(room, before))) continue;
-    }
-    return { room, now, result };
+  if (!room) throw new MissingRoomError("Room not found. It may have expired.");
+  const now = Date.now();
+  const before = structuredClone(room);
+  const ticked = tick(room, now);
+  const { changed, seen } = fn(room, now);
+  if (ticked || changed) stampChanges(before, room, now);
+  if (seen || !covers(stored, room)) {
+    room.version += 1;
+    room.updatedAt = now;
+    await store.set(room);
   }
-  throw new GameError("The room is busy, try again");
+  rememberLocal(room);
+  return { room, now };
 }
 
 export async function POST(req: Request) {
@@ -103,11 +116,15 @@ export async function POST(req: Request) {
     if (op === "create") {
       for (let i = 0; i < 10; i++) {
         const code = newCode();
-        if (await store.get(code)) continue;
+        if (recallLocal(code) || (await store.get(code))) continue;
         const now = Date.now();
         const host = { id: newId(), name: String(body.name ?? ""), token: newToken() };
         const room = createRoom(code, host, now);
-        if (!(await store.put(room, null))) continue;
+        room.gameAt = now;
+        room.removed = [];
+        for (const p of room.players) p.seatAt = now;
+        await store.set(room);
+        rememberLocal(room);
         return okView(room, host.id, now, { playerId: host.id, token: host.token });
       }
       return reply({ ok: false, error: "Couldn't create a room, try again" }, 503);
@@ -120,7 +137,7 @@ export async function POST(req: Request) {
       const player = { id: newId(), name: String(body.name ?? ""), token: newToken() };
       const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
         addPlayer(r, player, t);
-        return { changed: true, result: null };
+        return { changed: true };
       });
       return okView(room, player.id, now, { playerId: player.id, token: player.token });
     }
@@ -136,9 +153,9 @@ export async function POST(req: Request) {
       if (!me) throw new RemovedError("You're no longer in this room");
       playerId = me.id;
       const seen = touch(r, me.id, t);
-      if (op === "sync") return { changed: seen, result: null };
+      if (op === "sync") return { changed: false, seen };
       applyAction(r, me.id, op as ActionOp, body, t, deck);
-      return { changed: true, result: null };
+      return { changed: true, seen };
     });
     if (op === "leave" || !room.players.some((p) => p.id === playerId)) {
       return reply({ ok: false, error: "You left the room", gone: true, removed: true });
