@@ -11,8 +11,10 @@ export const REVOTE_MS = 30_000;
 export const GUESS_MS = 45_000;
 export const GRACE_MS = 750;
 export const HOST_AWAY_MS = 45_000;
-const ONLINE_MS = 15_000;
-const TOUCH_EVERY_MS = 5_000;
+// Presence pings are store writes; keep them sparse to stay inside the free
+// Runtime Cache write allotment.
+const ONLINE_MS = 25_000;
+const TOUCH_EVERY_MS = 10_000;
 const GUESS_OPTIONS = 10;
 const NAME_MAX = 20;
 

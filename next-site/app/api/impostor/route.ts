@@ -2,11 +2,12 @@ import { randomBytes, randomInt } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { ActionOp, ApiResponse } from "@/app/impostor/_lib/types";
 import { CATEGORIES } from "./_lib/packs";
-import { GameError, addPlayer, applyAction, createRoom, findByToken, tick, touch, viewFor, type Room } from "./_lib/engine";
-import { adoptSnapshot, getStore, openRoom, sealRoom } from "./_lib/store";
+import { GameError, ROOM_TTL_MS, addPlayer, applyAction, createRoom, findByToken, tick, touch, viewFor, type Room } from "./_lib/engine";
+import { getStore, openRoom, sealRoom } from "./_lib/store";
 
-// Every room operation lives in this one handler so they share a function
-// instance (and its memory) when no Redis store is configured.
+// Every room operation lives in this one handler. Production state lives in a
+// shared store (Runtime Cache or Redis); each client also carries an encrypted
+// snapshot so a room survives cache eviction or a cold dev server.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ function okView(room: Room, playerId: string, now: number, extra: { playerId?: s
   return reply({
     ok: true,
     view: viewFor(room, playerId, now, CATEGORIES),
-    snapshot: store.kind === "memory" ? sealRoom(room) : undefined,
+    snapshot: store.kind === "redis" ? undefined : sealRoom(room),
     ...extra,
   });
 }
@@ -44,12 +45,14 @@ async function withRoom(
   fn: (room: Room, now: number) => boolean,
 ): Promise<{ room: Room; now: number }> {
   const store = getStore();
-  if (store.kind === "memory") {
-    const snap = openRoom(snapshot, code);
-    if (snap) await adoptSnapshot(snap);
-  }
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const room = await store.get(code);
+  const snap = store.kind === "redis" ? null : openRoom(snapshot, code);
+  const snapFresh = snap && Date.now() - snap.updatedAt < ROOM_TTL_MS ? snap : null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let room = await store.get(code);
+    if (snapFresh && (!room || snapFresh.version > room.version)) {
+      if (!(await store.put(snapFresh, room ? room.version : null))) continue;
+      room = structuredClone(snapFresh);
+    }
     if (!room) throw new GoneError("Room not found. It may have expired.");
     const before = room.version;
     const now = Date.now();
@@ -95,6 +98,7 @@ export async function POST(req: Request) {
     if (op === "join") {
       const player = { id: newId(), name: body.name, token: newToken() };
       const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
+        if (r.players.some((p) => p.id === player.id)) return false;
         addPlayer(r, player, t);
         return true;
       });

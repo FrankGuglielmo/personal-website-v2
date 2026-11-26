@@ -12,7 +12,8 @@ import type {
   Team,
 } from "../../../codenames/_lib/types";
 
-export const ONLINE_MS = 12_000;
+// Presence writes can occasionally be lost to a race, so "online" tolerates one missed touch.
+export const ONLINE_MS = 20_000;
 export const TOUCH_MS = 8_000;
 export const BOARD_AWAY_MS = 30_000;
 export const MAX_PLAYERS = 24;
@@ -104,11 +105,25 @@ export function createRoom(code: string, host: { id: string; token: string }, no
   };
 }
 
+/**
+ * Adds a joining player. If an offline, non-host player already has the same
+ * name, the joiner takes over that seat (team, role and id) instead, so a
+ * rejoin from a new browser doesn't leave a stale duplicate behind.
+ */
 export function addPlayer(room: Room, p: { id: string; name: unknown; token: string }, now: number): Player {
+  let name = cleanName(p.name);
+  const same = (n: string) => room.players.filter((x) => x.id !== room.hostId && x.name.toLowerCase() === n.toLowerCase());
+  const stale = same(name).find((x) => !isOnline(x, now));
+  if (stale) {
+    stale.token = p.token;
+    stale.lastSeen = now;
+    return stale;
+  }
   if (room.players.length >= MAX_PLAYERS) throw new GameError("This room is full");
+  for (let k = 2; same(name).length > 0; k++) name = `${cleanName(p.name).slice(0, 17)} ${k}`;
   const player: Player = {
     id: p.id,
-    name: cleanName(p.name),
+    name,
     team: null,
     role: "operative",
     token: p.token,
@@ -122,12 +137,12 @@ export function addPlayer(room: Room, p: { id: string; name: unknown; token: str
 export const findByToken = (room: Room, token: string) =>
   token ? room.players.find((p) => p.token === token) ?? null : null;
 
-/** Records presence; returns true only when it's worth persisting. */
-export function touch(room: Room, playerId: string, now: number): boolean {
-  const p = room.players.find((x) => x.id === playerId);
-  if (!p || now - p.lastSeen < TOUCH_MS) return false;
-  p.lastSeen = now;
-  return true;
+/** Folds presence timestamps kept outside the room record into each player's lastSeen. */
+export function applyPresence(room: Room, presence: Record<string, number>) {
+  for (const p of room.players) {
+    const t = presence[p.id];
+    if (typeof t === "number" && t > p.lastSeen) p.lastSeen = t;
+  }
 }
 
 const isOnline = (p: Player, now: number) => now - p.lastSeen < ONLINE_MS;
