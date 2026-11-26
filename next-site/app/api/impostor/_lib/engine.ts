@@ -11,10 +11,8 @@ export const REVOTE_MS = 30_000;
 export const GUESS_MS = 45_000;
 export const GRACE_MS = 750;
 export const HOST_AWAY_MS = 45_000;
-// Presence pings are store writes; keep them sparse to stay inside the free
-// Runtime Cache write allotment.
 const ONLINE_MS = 25_000;
-const TOUCH_EVERY_MS = 10_000;
+const MAX_ACTS = 64;
 const GUESS_OPTIONS = 10;
 const NAME_MAX = 20;
 
@@ -71,7 +69,14 @@ export type Room = {
   result: ResultView | null;
   usedSecrets: string[];
   lastImpostors: string[];
+  /** Ids of players the host removed, so a lost-join retry can't bring them back. */
+  kicked?: string[];
+  /** Recent `${playerId}:${actionId}` keys, so a resent action applies once. */
+  acts?: string[];
 };
+
+/** Last poll time per player id. Kept outside the room so polling never writes it. */
+export type Presence = Record<string, number>;
 
 const shuffle = <T>(arr: T[]): T[] => {
   const a = [...arr];
@@ -140,13 +145,7 @@ export function addPlayer(room: Room, p: { id: string; name: unknown; token: str
 export const findByToken = (room: Room, token: string) =>
   token ? room.players.find((p) => p.token === token) ?? null : null;
 
-/** Returns true when lastSeen moved enough to be worth a write. */
-export function touch(room: Room, id: string, now: number): boolean {
-  const p = room.players.find((x) => x.id === id);
-  if (!p || now - p.lastSeen < TOUCH_EVERY_MS) return false;
-  p.lastSeen = now;
-  return true;
-}
+const lastSeen = (p: Player, seen: Presence) => Math.max(p.lastSeen, seen[p.id] ?? 0);
 
 const isActive = (phase: Phase) => phase === "reveal" || phase === "discuss" || phase === "vote" || phase === "guess";
 const alive = (r: Round) => r.participants.filter((id) => !r.eliminated.includes(id));
@@ -330,23 +329,26 @@ function finish(
   room.phase = "results";
 }
 
-/** Applies anything that became due because time passed. */
+/**
+ * Applies anything that became due because time passed. Each transition runs at
+ * its due time rather than `now`, so every server instance derives the same
+ * state from the same room and timer transitions never need their own write.
+ */
 export function tick(room: Room, now: number): boolean {
-  const r = room.round;
-  if (!r) return false;
-  if (room.phase === "discuss" && now >= r.discussEndsAt + GRACE_MS) {
-    startVote(room, r, now, alive(r), false);
-    return true;
+  let changed = false;
+  for (let i = 0; i < 8; i++) {
+    const r = room.round;
+    if (!r) break;
+    if (room.phase === "discuss" && now >= r.discussEndsAt + GRACE_MS) {
+      startVote(room, r, r.discussEndsAt + GRACE_MS, alive(r), false);
+    } else if (room.phase === "vote" && r.vote && now >= r.vote.endsAt + GRACE_MS) {
+      resolveVote(room, r, r.vote.endsAt + GRACE_MS);
+    } else if (room.phase === "guess" && r.guess && now >= r.guess.endsAt + GRACE_MS) {
+      resolveGuess(room, r, null);
+    } else break;
+    changed = true;
   }
-  if (room.phase === "vote" && r.vote && now >= r.vote.endsAt + GRACE_MS) {
-    resolveVote(room, r, now);
-    return true;
-  }
-  if (room.phase === "guess" && r.guess && now >= r.guess.endsAt + GRACE_MS) {
-    resolveGuess(room, r, null);
-    return true;
-  }
-  return false;
+  return changed;
 }
 
 function removePlayer(room: Room, id: string, now: number) {
@@ -416,6 +418,7 @@ export function applyAction(
   args: Record<string, unknown>,
   now: number,
   categories: Category[],
+  seen: Presence = {},
 ) {
   const isHost = room.hostId === me;
   const needHost = () => {
@@ -535,13 +538,14 @@ export function applyAction(
       const target = args.target;
       if (typeof target !== "string" || target === me) throw new GameError("Can't remove that player");
       if (!room.players.some((p) => p.id === target)) return;
+      room.kicked = [...(room.kicked ?? []), target].slice(-MAX_PLAYERS * 2);
       return removePlayer(room, target, now);
     }
 
     case "claimHost": {
       if (isHost) return;
       const host = room.players.find((p) => p.id === room.hostId);
-      if (host && now - host.lastSeen < HOST_AWAY_MS) throw new GameError("The host is still here");
+      if (host && now - lastSeen(host, seen) < HOST_AWAY_MS) throw new GameError("The host is still here");
       room.hostId = me;
       return;
     }
@@ -554,9 +558,30 @@ export function applyAction(
   }
 }
 
+/**
+ * Applies a client action at most once per action id. Returns false when this
+ * action was already applied (a resend after a slow or lost response).
+ */
+export function applyOnce(
+  room: Room,
+  me: string,
+  actionId: string,
+  op: ActionOp,
+  args: Record<string, unknown>,
+  now: number,
+  categories: Category[],
+  seen: Presence = {},
+): boolean {
+  const key = actionId ? `${me}:${actionId}` : "";
+  if (key && room.acts?.includes(key)) return false;
+  applyAction(room, me, op, args, now, categories, seen);
+  if (key) room.acts = [...(room.acts ?? []), key].slice(-MAX_ACTS);
+  return true;
+}
+
 // ---------- per-player view ----------
 
-export function viewFor(room: Room, me: string, now: number, categories: Category[]): RoomView {
+export function viewFor(room: Room, me: string, now: number, categories: Category[], seen: Presence = {}): RoomView {
   const r = room.round;
   const active = !!r && isActive(room.phase);
   const nameOf = (id: string) => room.players.find((p) => p.id === id)?.name ?? "Someone";
@@ -590,7 +615,7 @@ export function viewFor(room: Room, me: string, now: number, categories: Categor
         id: p.id,
         name: p.name,
         isHost: p.id === room.hostId,
-        online: now - p.lastSeen < ONLINE_MS,
+        online: now - lastSeen(p, seen) < ONLINE_MS,
         score: p.score,
         inRound: active ? r!.participants.includes(p.id) : false,
         eliminated: active ? r!.eliminated.includes(p.id) : false,
@@ -631,5 +656,6 @@ export function viewFor(room: Room, me: string, now: number, categories: Categor
         ? { endsAt: r.guess.endsAt, by: r.guess.by, reason: r.guess.reason, options: r.guess.by === me ? r.options : null }
         : null,
     result: room.phase === "results" || room.phase === "over" ? room.result : null,
+    acks: (room.acts ?? []).filter((k) => k.startsWith(`${me}:`)).map((k) => k.slice(me.length + 1)),
   };
 }

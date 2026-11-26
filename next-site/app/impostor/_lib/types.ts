@@ -80,6 +80,8 @@ export type RoomView = {
   } | null;
   guess: { endsAt: number; by: string; reason: "caught" | "called"; options: string[] | null } | null;
   result: ResultView | null;
+  /** My recent action ids that the room has applied. */
+  acks: string[];
 };
 
 export type ActionOp =
@@ -102,4 +104,4 @@ export type ActionOp =
 
 export type ApiResponse =
   | { ok: true; view: RoomView; snapshot?: string; playerId?: string; token?: string }
-  | { ok: false; error: string; gone?: boolean };
+  | { ok: false; error: string; gone?: boolean; rejoin?: boolean };

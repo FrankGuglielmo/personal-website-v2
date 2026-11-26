@@ -1,27 +1,32 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { getCache } from "@vercel/functions";
 import { createCacheStore } from "./cacheStore";
-import { ROOM_TTL_MS, type Room } from "./engine";
+import { ROOM_TTL_MS, type Presence, type Room } from "./engine";
 
 export interface RoomStore {
   /** "redis" has a real compare-and-set; the others also lean on client snapshots. */
   readonly kind: "memory" | "runtime-cache" | "redis";
   get(code: string): Promise<Room | null>;
-  /** Compare-and-set on `expectedVersion` (null = must not exist). */
+  /** Writes unless the store holds a version newer than `expectedVersion` (null = must not exist). */
   put(room: Room, expectedVersion: number | null): Promise<boolean>;
+  /** Last-seen times. Lossy by design: a dropped update only dims an online dot. */
+  getPresence(code: string): Promise<Presence>;
+  setPresence(code: string, seen: Presence): Promise<void>;
 }
 
 // ---------- in-memory (default, zero setup) ----------
 
-type MemState = { rooms: Map<string, Room> };
+type MemState = { rooms: Map<string, Room>; seen?: Map<string, Presence> };
 const g = globalThis as unknown as { __impostorRooms?: MemState };
 const mem: MemState = g.__impostorRooms ?? (g.__impostorRooms = { rooms: new Map() });
+const memSeen = mem.seen ?? (mem.seen = new Map());
 const MAX_MEM_ROOMS = 200;
 
 function sweep(now: number) {
   for (const [code, room] of mem.rooms) {
     if (now - room.updatedAt > ROOM_TTL_MS) mem.rooms.delete(code);
   }
+  for (const code of memSeen.keys()) if (!mem.rooms.has(code)) memSeen.delete(code);
   if (mem.rooms.size > MAX_MEM_ROOMS) {
     const oldest = [...mem.rooms.values()].sort((a, b) => a.updatedAt - b.updatedAt);
     for (const r of oldest.slice(0, mem.rooms.size - MAX_MEM_ROOMS)) mem.rooms.delete(r.code);
@@ -41,10 +46,16 @@ const memoryStore: RoomStore = {
   },
   async put(room, expectedVersion) {
     const cur = mem.rooms.get(room.code);
-    if ((cur ? cur.version : null) !== expectedVersion) return false;
+    if (cur ? expectedVersion === null || cur.version > expectedVersion : false) return false;
     mem.rooms.set(room.code, structuredClone(room));
     sweep(Date.now());
     return true;
+  },
+  async getPresence(code) {
+    return { ...memSeen.get(code) };
+  },
+  async setPresence(code, seen) {
+    memSeen.set(code, { ...seen });
   },
 };
 
@@ -59,7 +70,23 @@ function runtimeCacheStore(): RoomStore {
     ttlMs: ROOM_TTL_MS,
     newId: () => randomBytes(8).toString("hex"),
   });
-  return { kind: "runtime-cache", get: store.get, put: store.put };
+  const seenKey = (code: string) => `seen:${code}`;
+  return {
+    kind: "runtime-cache",
+    get: store.get,
+    put: store.put,
+    async getPresence(code) {
+      const raw = await cache.get(seenKey(code));
+      try {
+        return typeof raw === "string" ? (JSON.parse(raw) as Presence) : {};
+      } catch {
+        return {};
+      }
+    },
+    async setPresence(code, seen) {
+      await cache.set(seenKey(code), JSON.stringify(seen), { ttl: Math.ceil(ROOM_TTL_MS / 1000), name: "impostor-seen" });
+    },
+  };
 }
 
 // ---------- Upstash Redis over REST (optional) ----------
@@ -85,6 +112,7 @@ function redisStore(url: string, token: string): RoomStore {
     return json.result;
   };
   const key = (code: string) => `impostor:room:${code}`;
+  const seenKey = (code: string) => `impostor:seen:${code}`;
   return {
     kind: "redis",
     async get(code) {
@@ -102,6 +130,13 @@ function redisStore(url: string, token: string): RoomStore {
         ROOM_TTL_MS,
       ]);
       return ok === 1;
+    },
+    async getPresence(code) {
+      const raw = await call(["GET", seenKey(code)]);
+      return typeof raw === "string" ? (JSON.parse(raw) as Presence) : {};
+    },
+    async setPresence(code, seen) {
+      await call(["SET", seenKey(code), JSON.stringify(seen), "PX", ROOM_TTL_MS]);
     },
   };
 }

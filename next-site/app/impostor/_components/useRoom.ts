@@ -8,6 +8,14 @@ export type Session = { code: string; playerId: string; token: string };
 const sessionKey = (code: string) => `impostor:session:${code}`;
 const snapKey = (code: string) => `impostor:snap:${code}`;
 const LAST_KEY = "impostor:last";
+// The shared store can briefly serve an older room, so a write can be lost to a
+// concurrent one. Actions carry an id; if the room hasn't applied it after
+// RESEND_MS the client sends it again (the server applies each id once).
+const RESEND_MS = 3000;
+const MAX_TRIES = 3;
+const newActionId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+type Pending = { aid: string; op: string; args: Record<string, unknown>; sentAt: number; tries: number };
 
 export function loadSession(code: string): Session | null {
   try {
@@ -71,6 +79,9 @@ export function useRoom() {
   const samplesRef = useRef<{ rtt: number; offset: number }[]>([]);
   const sessionRef = useRef<Session | null>(null);
   const versionRef = useRef(0);
+  const pendingRef = useRef<Pending[]>([]);
+  const nameRef = useRef("");
+  const rejoinRef = useRef<Promise<boolean> | null>(null);
   sessionRef.current = session;
 
   const absorb = useCallback((res: ApiResponse, rtt: number, receivedAt: number, s: Session) => {
@@ -89,6 +100,9 @@ export function useRoom() {
       versionRef.current = res.view.version;
       setView(res.view);
     }
+    const acks = res.view.acks ?? [];
+    if (pendingRef.current.length) pendingRef.current = pendingRef.current.filter((p) => !acks.includes(p.aid));
+    nameRef.current = res.view.players.find((p) => p.id === res.view.meId)?.name ?? nameRef.current;
     setOffline(false);
     return true;
   }, []);
@@ -99,8 +113,34 @@ export function useRoom() {
     setView(null);
     versionRef.current = 0;
     snapshotRef.current = undefined;
+    pendingRef.current = [];
     setError(message);
   }, []);
+
+  /** Takes our seat back after a concurrent write dropped our join. */
+  const rejoin = useCallback(
+    (s: Session) => {
+      rejoinRef.current ??= (async () => {
+        try {
+          const { res, rtt, receivedAt } = await post({
+            op: "join",
+            code: s.code,
+            name: nameRef.current,
+            playerId: s.playerId,
+            token: s.token,
+            snapshot: snapshotRef.current,
+          });
+          return absorb(res, rtt, receivedAt, s);
+        } catch {
+          return true;
+        } finally {
+          setTimeout(() => (rejoinRef.current = null), 2000);
+        }
+      })();
+      return rejoinRef.current;
+    },
+    [absorb],
+  );
 
   const enter = useCallback(
     async (op: "create" | "join", name: string, code?: string) => {
@@ -130,6 +170,7 @@ export function useRoom() {
   );
 
   const resume = useCallback((s: Session) => {
+    pendingRef.current = [];
     try {
       snapshotRef.current = localStorage.getItem(snapKey(s.code)) ?? undefined;
     } catch {}
@@ -137,26 +178,68 @@ export function useRoom() {
     setSession(s);
   }, []);
 
-  const send = useCallback(
-    async (op: string, args: Record<string, unknown> = {}) => {
-      const s = sessionRef.current;
-      if (!s) return false;
+  const request = useCallback(
+    async (s: Session, op: string, args: Record<string, unknown>, pending: Pending | null) => {
+      const drop = () => {
+        if (pending) pendingRef.current = pendingRef.current.filter((p) => p !== pending);
+      };
       try {
-        const { res, rtt, receivedAt } = await post({ op, code: s.code, token: s.token, snapshot: snapshotRef.current, ...args });
+        const { res, rtt, receivedAt } = await post({
+          ...args,
+          op,
+          code: s.code,
+          token: s.token,
+          playerId: s.playerId,
+          aid: pending?.aid,
+          snapshot: snapshotRef.current,
+        });
         if (!res.ok) {
+          if (res.error.includes("busy")) return false;
+          drop();
+          if (res.gone && op !== "leave" && res.rejoin && (await rejoin(s))) return false;
           if (res.gone) leaveLocal(s.code, op === "leave" ? null : res.error);
-          else if (res.error !== "stale" && op !== "sync") setError(res.error);
+          else if (res.error !== "stale" && op !== "sync" && (!pending || pending.tries === 1)) setError(res.error);
           return false;
         }
-        if (op !== "sync") setError(null);
+        if (op !== "sync" && pending?.tries === 1) setError(null);
         return absorb(res, rtt, receivedAt, s);
       } catch {
         setOffline(true);
         return false;
       }
     },
-    [absorb, leaveLocal],
+    [absorb, leaveLocal, rejoin],
   );
+
+  const send = useCallback(
+    async (op: string, args: Record<string, unknown> = {}) => {
+      const s = sessionRef.current;
+      if (!s) return false;
+      let pending: Pending | null = null;
+      if (op !== "sync") {
+        pending = { aid: newActionId(), op, args, sentAt: Date.now(), tries: 1 };
+        pendingRef.current = [...pendingRef.current, pending];
+      }
+      return request(s, op, args, pending);
+    },
+    [request],
+  );
+
+  const resendLost = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s) return;
+    const now = Date.now();
+    for (const p of pendingRef.current) {
+      if (now - p.sentAt < RESEND_MS) continue;
+      if (p.tries >= MAX_TRIES) {
+        pendingRef.current = pendingRef.current.filter((x) => x !== p);
+        continue;
+      }
+      p.tries += 1;
+      p.sentAt = now;
+      await request(s, p.op, p.args, p);
+    }
+  }, [request]);
 
   useEffect(() => {
     if (!session) return;
@@ -165,6 +248,7 @@ export function useRoom() {
     let gen = 0;
     const loop = async (g: number) => {
       await send("sync");
+      await resendLost();
       if (stopped || g !== gen) return;
       timer = setTimeout(() => loop(g), document.hidden ? 5000 : 1000);
     };
@@ -181,7 +265,7 @@ export function useRoom() {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [session, send]);
+  }, [session, send, resendLost]);
 
   const serverNow = useCallback(() => Date.now() + offsetRef.current, []);
 

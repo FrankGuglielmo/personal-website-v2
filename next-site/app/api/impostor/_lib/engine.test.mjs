@@ -1,7 +1,7 @@
 // Run: node --test app/api/impostor/_lib/engine.test.mjs   (Node 22.18+, type stripping)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GUESS_MS, GRACE_MS, GameError, VOTE_MS, addPlayer, applyAction, createRoom, maxImpostors, tick, viewFor } from "./engine.ts";
+import { GUESS_MS, GRACE_MS, GameError, VOTE_MS, addPlayer, applyAction, applyOnce, createRoom, maxImpostors, tick, viewFor } from "./engine.ts";
 import { CATEGORIES } from "./packs.ts";
 
 function setup(n = 6, settings = {}) {
@@ -210,6 +210,50 @@ test("only the host changes settings; host can be claimed when away", () => {
   const { room, now } = setup(4);
   assert.throws(() => act(room, "p1", "setSettings", { settings: { impostors: 2 } }, now), GameError);
   assert.throws(() => act(room, "p1", "claimHost", {}, now + 1000), GameError);
+  const seen = { p0: now + 50_000 };
+  assert.throws(() => applyAction(room, "p1", "claimHost", {}, now + 60_000, CATEGORIES, seen), GameError);
+  assert.equal(viewFor(room, "p1", now + 60_000, CATEGORIES, seen).players[0].online, true);
   act(room, "p1", "claimHost", {}, now + 60_000);
   assert.equal(room.hostId, "p1");
+});
+
+test("timers are derived from due times, so every instance computes the same room", () => {
+  const { room, now } = setup(5, { discussSec: 180 });
+  act(room, "p0", "start", {}, now);
+  act(room, "p0", "startDiscuss", {}, now);
+  const a = structuredClone(room);
+  const b = structuredClone(room);
+  assert.equal(tick(a, now + 180_000 + GRACE_MS + 10), true);
+  assert.equal(tick(b, now + 180_000 + GRACE_MS + 4_321), true);
+  assert.deepEqual(a, b);
+  assert.equal(a.phase, "vote");
+  // Several due transitions in one read: vote ends with no ballots, round over.
+  const c = structuredClone(room);
+  tick(c, now + 180_000 + VOTE_MS + 2 * GRACE_MS + 1);
+  assert.equal(c.phase, "results");
+  assert.equal(tick(c, now + 999_999_999), false);
+});
+
+test("a resent action applies once, and an action lost to a stale write heals on resend", () => {
+  const { room, now } = setup(5);
+  toVote(room, now);
+  const [imp] = room.round.impostors;
+  const [x, y] = innocents(room);
+  const stale = structuredClone(room);
+  // x's vote lands, then y's vote is computed from a stale copy and overwrites it.
+  assert.equal(applyOnce(room, x, "ax", "vote", { target: imp }, now, CATEGORIES), true);
+  assert.deepEqual(viewFor(room, x, now, CATEGORIES).acks, ["ax"]);
+  assert.equal(applyOnce(stale, y, "ay", "vote", { target: imp }, now, CATEGORIES), true);
+  let latest = stale;
+  assert.deepEqual(viewFor(latest, x, now, CATEGORIES).acks, [], "x sees its action missing");
+  assert.equal(applyOnce(latest, x, "ax", "vote", { target: imp }, now + 3000, CATEGORIES), true);
+  assert.equal(applyOnce(latest, y, "ay", "vote", { target: imp }, now + 3000, CATEGORIES), false, "dedupe");
+  assert.equal(viewFor(latest, x, now, CATEGORIES).vote.votedCount, 2);
+});
+
+test("kicked players are remembered", () => {
+  const { room, now } = setup(4);
+  act(room, "p0", "kick", { target: "p2" }, now);
+  assert.deepEqual(room.kicked, ["p2"]);
+  assert.ok(!room.players.some((p) => p.id === "p2"));
 });

@@ -1,8 +1,9 @@
 // Room store on a plain key-value cache (Vercel Runtime Cache in production).
-// The cache has no compare-and-set, so writes are guarded twice: the stored
-// version must still be the one we loaded, and after writing we read back our
-// write id. If another instance's write landed instead, put() reports a
-// conflict and the caller reloads and re-applies its action on newer state.
+// The cache has no compare-and-set and its reads can lag a write by a second or
+// two, so these guards are best effort: never write over a newer stored
+// version, and read back our write id to catch a racing write that landed
+// instead. The route and client cover what this can't (deterministic timers,
+// action ids with resend, client snapshots).
 // No value imports, so `node --test` can load it directly.
 
 export type KV = {
@@ -41,9 +42,10 @@ export function createCacheStore<R extends Versioned>(kv: KV, opts: CacheStoreOp
     async get(code: string): Promise<R | null> {
       return (await read(code))?.room ?? null;
     },
+    /** Writes unless the store holds a newer version (null = must not exist). */
     async put(room: R, expectedVersion: number | null): Promise<boolean> {
       const cur = await read(room.code);
-      if ((cur ? cur.room.version : null) !== expectedVersion) return false;
+      if (cur ? expectedVersion === null || cur.room.version > expectedVersion : false) return false;
       const w = newId();
       await kv.set(key(room.code), JSON.stringify({ w, room } satisfies Entry<R>), {
         ttl: Math.ceil(opts.ttlMs / 1000),
