@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getCache } from "@vercel/functions";
 import { ROOM_TTL_MS, type Room } from "./engine";
 import { openRoom as openWithKeys, sealRoom as sealWithKeys, snapshotKeys } from "./snapshot";
@@ -56,15 +57,17 @@ const memoryStore: RoomStore = {
 function sharedStore(): RoomStore {
   const cache = getCache({ namespace: "taboo" });
   const key = (code: string) => `room:${code}`;
-  const read = async (code: string): Promise<Room | null> => {
+  type Entry = { w: string; room: Room };
+  const readEntry = async (code: string): Promise<Entry | null> => {
     try {
       const raw = await cache.get(key(code));
-      const room = typeof raw === "string" ? (JSON.parse(raw) as Room) : null;
-      return room && Date.now() - room.updatedAt <= ROOM_TTL_MS ? room : null;
+      const entry = typeof raw === "string" ? (JSON.parse(raw) as Entry) : null;
+      return entry?.room && Date.now() - entry.room.updatedAt <= ROOM_TTL_MS ? entry : null;
     } catch {
       return null;
     }
   };
+  const read = async (code: string) => (await readEntry(code))?.room ?? null;
   return {
     kind: "shared",
     async get(code) {
@@ -77,9 +80,19 @@ function sharedStore(): RoomStore {
       const current = newer(await read(room.code), memGet(room.code));
       if ((current?.version ?? null) !== expectedVersion) return false;
       memSet(room);
+      const w = randomUUID();
       try {
-        await cache.set(key(room.code), JSON.stringify(room), { ttl: Math.round(ROOM_TTL_MS / 1000), name: "taboo-room" });
-      } catch {}
+        await cache.set(key(room.code), JSON.stringify({ w, room } satisfies Entry), { ttl: Math.round(ROOM_TTL_MS / 1000), name: "taboo-room" });
+      } catch {
+        return true;
+      }
+      // The cache has no compare-and-set, so two instances can both pass the version
+      // check; the one whose write didn't stick adopts the winner's state and retries.
+      const back = await readEntry(room.code);
+      if (back && back.w !== w && back.room.version >= room.version) {
+        memSet(back.room);
+        return false;
+      }
       return true;
     },
   };
