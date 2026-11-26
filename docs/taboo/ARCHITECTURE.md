@@ -53,11 +53,11 @@ No new npm dependencies: Upstash is called over its REST API with `fetch`, and e
 
 ## 5. Deck
 
-About 340 original family-friendly cards in 7 categories (everyday, food, places, pop culture, actions, nature, Thanksgiving), stored in `deck.ts`. Each game shuffles the deck once, so no card repeats in a game; if the deck runs out it reshuffles. Custom decks later: a room setting holding a pasted list.
+397 original family-friendly cards in 7 categories (everyday, food, places, pop culture, actions, nature, Thanksgiving), stored in `deck.ts`. Each game shuffles the deck once, so no card repeats in a game; if the deck runs out it reshuffles. Custom decks later: a room setting holding a pasted list.
 
 ## 6. UX
 
-Mobile-first, one column. It uses the site's `.glass` panels, the background image and the existing light/dark toggle (the layout's bottom nav stays; the game pads above it). Screens: Home (create or join) → Lobby (big code, share, team columns, host settings) → Ready → Active (per role) → Review → Game over. Buttons are at least 64 px tall and labeled with text, not just color. The timer has an `aria-live` region for milestones. On time-up and buzz there is a short Web Audio beep (unlocked on the first tap, so it is iOS-safe) and `navigator.vibrate` where supported.
+Mobile-first, one column. It uses the site's `.glass` panels, the background image and the existing light/dark toggle (the layout's bottom nav stays; the game pads above it). Screens: Home (create or join) → Lobby (big code, share, team columns, host settings) → Ready → Active (per role) → Review → Game over. Primary buttons are 72 px tall, secondary ones 48 px, all and labeled with text, not just color. Dark-mode styles use a `.dark`-scoped variant (`[.dark_&]:`), because the shared Tailwind config's `dark:` follows the OS setting rather than the site toggle. The timer has an `aria-live` region for milestones. On time-up and buzz there is a short Web Audio beep (unlocked on the first tap, so it is iOS-safe) and `navigator.vibrate` where supported.
 
 ## 7. Security, environment variables and accounts
 
@@ -82,7 +82,8 @@ To protect the margin, polling drops to 1 per 5 s while a tab is hidden.
 ## 8. Testing and phases
 
 - **Tests:** engine unit tests use `node --test` (no new dependencies) to cover rotation, scoring, grace window, undo, review edits, win and tie, and card secrecy in views. Multi-client end-to-end tests use Playwright with 4 or more browser contexts against `next dev`, run ad hoc for this PR.
-- **Phase 1 (this PR):** everything above except QR codes, custom decks, the Redis read cache and the automated e2e suite. Main work: the engine and reducer, one route handler, a store with two backends, one client component with about 6 screens, and the deck.
+- **Run tests:** `cd next-site && node --test app/api/taboo/_lib/engine.test.mjs`.
+- **Phase 1 (this PR, built):** everything above except QR codes, custom decks, the Redis read cache and the checked-in e2e suite. Verified ad hoc with a 5-browser Playwright run (create, join by link, start, card shown only to the clue-giver and watchers, buzz, refresh and rejoin mid-turn, review, rotation, winner), and by restarting the server mid-turn (the room was restored from a client snapshot). Main work: the engine and reducer, one route handler, a store with two backends, one client component with about 6 screens, and the deck.
 - **Phase 2 (hardening):** checked-in Playwright multi-client e2e, a QR code (small dependency), the Redis read cache, a reconnect banner, rate limiting, and a rejoin picker for players who lost their token.
 - **Phase 3 (extras):** custom decks and category picks, sound options, per-player stats, and a push transport (WebSocket or Durable Object) if polling ever pinches.
 
