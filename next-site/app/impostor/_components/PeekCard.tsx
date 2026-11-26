@@ -39,7 +39,7 @@ export default function PeekCard({ card, compact = false }: { card: CardView; co
 
   if (card.kind === "spectator") {
     return (
-      <div className="rounded-3xl border border-white/30 bg-white/10 p-5 text-center text-[hsl(var(--color-muted))]">
+      <div className="rounded-3xl border border-white/30 bg-white/10 p-5 text-center text-black/60 [.dark_&]:text-white/70">
         You joined mid-round. You&apos;ll be dealt in next round. Watch and listen for now.
       </div>
     );

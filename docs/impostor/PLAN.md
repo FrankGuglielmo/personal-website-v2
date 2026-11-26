@@ -8,7 +8,7 @@
 - Clients poll `POST /api/impostor {op:"sync"}` about once a second (once every 5 s while the tab is hidden). Timers are server `endsAt` timestamps with clock-skew correction.
 - **Store:** by default, in-memory plus an AES-GCM encrypted snapshot held by each client, so a cold or recycled function instance rebuilds the room from the next poll. If Frank later adds Upstash Redis (free, through the Vercel Marketplace), the store switches to it automatically when the env vars are present. Same interface as Taboo. No new npm dependencies.
 - Room codes: 4 letters, no I or O. Rooms expire 8 h after the last write. Up to 16 players per room. The page is marked `noindex` and is not linked in the nav.
-- UI code is isolated under `app/impostor/` and `components/impostor/`. It reuses the `GlassPanel`, `.glass` and `.liquid-glass` styles and the existing theme toggle and background.
+- Code is isolated under `app/impostor/` (page, client components, shared view types) and `app/api/impostor/` (route, engine, packs, store). It reuses the `GlassPanel`, `.glass` and `.liquid-glass` styles and the existing theme toggle and background.
 
 Free-tier headroom matches the Taboo estimate: a few parties a month at 1 Hz is roughly 40% of Hobby's 1M invocations. If both games run on the same night, the combined load still fits, and Hobby pauses rather than bills.
 
@@ -38,7 +38,7 @@ Each decision lists the options, then **Default** (what gets built if Frank does
 - A. One mixed pack.
 - B. Themed packs the host can select: Everyday Places, Food, Animals, Movies & TV (generic), Sports, Jobs, **Thanksgiving** (e.g. Turkey, Parade, Pie Table, Kids' Table, Football Game), **Family Gathering** (e.g. Grandma's Kitchen, Road Trip, Family Photo, Board Game Night). Spyfall locations each get about 6 roles.
 - C. B plus a "custom list" field for the host.
-- **Default: B.** About 8 packs × 20–30 entries, around 200 total, in `components/impostor/packs.ts`. A word never repeats within a game. Custom lists are Phase 2.
+- **Default: B.** About 8 packs × 20–30 entries, around 200 total, in `app/api/impostor/_lib/packs.ts` (server-only, so secrets never ship to the browser). A word never repeats within a game. Custom lists are Phase 2.
 
 **D5. Clue phase (word-impostor mode)**
 - A. **Spoken aloud.** The app shows the turn order and whose turn it is; players tap "Done".
@@ -96,6 +96,14 @@ Each decision lists the options, then **Default** (what gets built if Frank does
 Home (create or join) → Lobby (big code, share, player list, host settings: mode, packs, impostors, timer, rounds) → Reveal (hold to peek, "Ready") → Discussion (timer, turn hint, "I know it!") → Vote → Results (who it was, the secret, last-chance guess) → Leaderboard → next round or Game over.
 
 State machine: `lobby → reveal → discuss → vote (→ revote) → guess → results → (reveal | over)`.
+
+## Phase 1 status (built)
+
+Phase 1 is built and playable. Run the engine tests with `cd next-site && node --test app/api/impostor/_lib/engine.test.mjs`. Every Default above is in, except the items marked Phase 2.
+
+Environment variables are all optional, and the game works with none set:
+- `IMPOSTOR_SECRET` (recommended): a long random string (for example `openssl rand -base64 32`), set for Production in Vercel. It encrypts the room snapshot each phone holds. Without it the key is derived from Vercel's deployment id and URL, which a determined player could reconstruct to decrypt a snapshot and see who the impostor is.
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`): only if Upstash Redis is added later. Same variables as Taboo, but a separate `impostor:` key prefix.
 
 ## Phases and estimate
 

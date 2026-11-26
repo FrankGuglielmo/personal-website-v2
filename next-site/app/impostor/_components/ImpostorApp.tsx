@@ -114,13 +114,13 @@ function Home({
     <div className="space-y-4">
       <Panel>
         <h1 className="text-3xl font-black tracking-tight">Impostor</h1>
-        <p className="mt-1 text-sm text-[hsl(var(--color-muted))]">
+        <p className="mt-1 text-sm text-black/60 [.dark_&]:text-white/70">
           Everyone gets the same secret, except the impostor. Ask questions, give clues, then vote out who&apos;s faking it. Best with 6–10 people, each on their own phone.
         </p>
       </Panel>
       <Panel className="space-y-3">
         <label className="block">
-          <span className="mb-1 block text-sm text-[hsl(var(--color-muted))]">Your name</span>
+          <span className="mb-1 block text-sm text-black/60 [.dark_&]:text-white/70">Your name</span>
           <input className={inputCls} value={name} maxLength={20} autoComplete="nickname" placeholder="e.g. Aunt Linda" onChange={(e) => setName(e.target.value)} />
         </label>
         <Btn tone="primary" big className="w-full" disabled={busy} onClick={() => onEnter("create")}>
@@ -129,7 +129,7 @@ function Home({
       </Panel>
       <Panel className="space-y-3">
         <label className="block">
-          <span className="mb-1 block text-sm text-[hsl(var(--color-muted))]">Room code</span>
+          <span className="mb-1 block text-sm text-black/60 [.dark_&]:text-white/70">Room code</span>
           <input
             className={twMerge(inputCls, "text-center text-2xl font-bold uppercase tracking-[0.4em]")}
             value={joinCode}
@@ -167,7 +167,7 @@ function Timer({ endsAt, serverNow, label }: { endsAt: number; serverNow: () => 
   const secs = useCountdown(endsAt, serverNow);
   return (
     <div className="text-center">
-      <div className="text-xs uppercase tracking-wider text-[hsl(var(--color-muted))]">{label}</div>
+      <div className="text-xs uppercase tracking-wider text-black/60 [.dark_&]:text-white/70">{label}</div>
       <div className={twMerge("font-mono text-5xl font-black tabular-nums", secs <= 10 && "text-rose-500")} aria-live={secs % 30 === 0 || secs <= 10 ? "polite" : "off"}>
         {fmt(secs)}
       </div>
@@ -220,7 +220,7 @@ function GlassHeader({ view, onLeave }: { view: RoomView; onLeave: () => void })
     <Panel className="flex items-center justify-between gap-3 py-3">
       <div>
         <div className="text-lg font-black leading-tight">Impostor</div>
-        <div className="text-xs text-[hsl(var(--color-muted))]">
+        <div className="text-xs text-black/60 [.dark_&]:text-white/70">
           Room <span className="font-bold tracking-widest">{view.code}</span>
           {inGame && ` · Round ${view.roundNo} of ${view.totalRounds}`}
           {view.category && ` · ${view.category}`}
@@ -250,7 +250,7 @@ function SectionTitle({ children, sub }: { children: ReactNode; sub?: ReactNode 
   return (
     <div>
       <h2 className="text-xl font-bold">{children}</h2>
-      {sub && <p className="text-sm text-[hsl(var(--color-muted))]">{sub}</p>}
+      {sub && <p className="text-sm text-black/60 [.dark_&]:text-white/70">{sub}</p>}
     </div>
   );
 }
@@ -280,9 +280,9 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
   return (
     <>
       <Panel className="text-center">
-        <div className="text-sm text-[hsl(var(--color-muted))]">Room code</div>
+        <div className="text-sm text-black/60 [.dark_&]:text-white/70">Room code</div>
         <div className="my-1 text-6xl font-black tracking-[0.25em]">{view.code}</div>
-        <div className="text-xs text-[hsl(var(--color-muted))]">Go to this page and enter the code, or share the link.</div>
+        <div className="text-xs text-black/60 [.dark_&]:text-white/70">Go to this page and enter the code, or share the link.</div>
         <Btn className="mt-3 w-full" onClick={share}>
           {copied ? "Link copied" : "Share invite link"}
         </Btn>
@@ -297,7 +297,7 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
                 <span className={twMerge("h-2.5 w-2.5 rounded-full", p.online ? "bg-emerald-400" : "bg-zinc-400")} aria-label={p.online ? "online" : "offline"} />
                 <span className="font-medium">
                   {p.name}
-                  {p.id === view.meId && <span className="text-[hsl(var(--color-muted))]"> (you)</span>}
+                  {p.id === view.meId && <span className="text-black/60 [.dark_&]:text-white/70"> (you)</span>}
                 </span>
                 {p.isHost && <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-xs font-bold text-black">Host</span>}
               </span>
@@ -327,14 +327,14 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
             { value: "word", label: "Secret word" },
           ]}
         />
-        <p className="-mt-2 text-xs text-[hsl(var(--color-muted))]">
+        <p className="-mt-2 text-xs text-black/60 [.dark_&]:text-white/70">
           {s.mode === "spyfall"
             ? "Everyone but the impostor gets a location and a role. Take turns asking each other questions out loud."
             : "Everyone but the impostor gets a word. Go around and each say one related word, then discuss."}
         </p>
 
         <div>
-          <div className="mb-1 text-sm text-[hsl(var(--color-muted))]">Impostors</div>
+          <div className="mb-1 text-sm text-black/60 [.dark_&]:text-white/70">Impostors</div>
           <div className="flex items-center gap-3">
             <Btn className="w-14 text-2xl" aria-label="Fewer impostors" disabled={!isHost || pending || s.impostors <= 1} onClick={() => set({ impostors: s.impostors - 1 })}>
               −
@@ -351,7 +351,7 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
               +
             </Btn>
           </div>
-          <p className="mt-1 text-xs text-[hsl(var(--color-muted))]">
+          <p className="mt-1 text-xs text-black/60 [.dark_&]:text-white/70">
             With {n} player{n === 1 ? "" : "s"}, up to {view.limits.maxImpostors} (impostors must be outnumbered).
             {effective < s.impostors && ` ${effective} will be used unless more people join.`}
           </p>
@@ -406,7 +406,7 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
         />
 
         <div>
-          <div className="mb-1 text-sm text-[hsl(var(--color-muted))]">Categories</div>
+          <div className="mb-1 text-sm text-black/60 [.dark_&]:text-white/70">Categories</div>
           <div className="flex flex-wrap gap-2">
             {view.catalog.map((c) => {
               const on = s.categories.includes(c.id);
@@ -435,7 +435,7 @@ function Lobby({ view, act, pending, isHost }: Ctx) {
           {n < view.limits.minPlayers ? `Waiting for ${view.limits.minPlayers - n} more…` : "Deal the cards"}
         </Btn>
       ) : (
-        <Panel className="text-center text-sm text-[hsl(var(--color-muted))]">Waiting for the host to start…</Panel>
+        <Panel className="text-center text-sm text-black/60 [.dark_&]:text-white/70">Waiting for the host to start…</Panel>
       )}
     </>
   );
@@ -458,7 +458,7 @@ function Reveal({ view, act, pending, isHost, me }: Ctx) {
             {me.ready ? "Ready, waiting for others" : "I've seen it, ready"}
           </Btn>
         ) : null}
-        <p className="text-center text-sm text-[hsl(var(--color-muted))]">
+        <p className="text-center text-sm text-black/60 [.dark_&]:text-white/70">
           {readyCount} of {inRound.length} ready
         </p>
         {isHost && (
@@ -488,7 +488,7 @@ function Discuss({ view, act, pending, serverNow, isHost, me, nameOf }: Ctx) {
             <b>{nameOf(d.lastEliminated)}</b> was voted out and was <b>not</b> an impostor. Keep going.
           </div>
         )}
-        {me?.eliminated && <div className="text-center text-sm text-[hsl(var(--color-muted))]">You&apos;re out this round. You can still watch.</div>}
+        {me?.eliminated && <div className="text-center text-sm text-black/60 [.dark_&]:text-white/70">You&apos;re out this round. You can still watch.</div>}
       </Panel>
 
       {card && (
@@ -593,16 +593,16 @@ function Vote({ view, act, pending, serverNow }: Ctx) {
               })}
           </div>
         ) : (
-          <p className="text-center text-sm text-[hsl(var(--color-muted))]">You&apos;re not voting this time. Sit tight.</p>
+          <p className="text-center text-sm text-black/60 [.dark_&]:text-white/70">You&apos;re not voting this time. Sit tight.</p>
         )}
-        {v.canVote && v.myVote && <p className="text-center text-xs text-[hsl(var(--color-muted))]">You can change your vote until everyone is in.</p>}
+        {v.canVote && v.myVote && <p className="text-center text-xs text-black/60 [.dark_&]:text-white/70">You can change your vote until everyone is in.</p>}
       </Panel>
       <Panel className="text-center text-sm">
         <b>
           {v.votedCount} of {v.voterCount}
         </b>{" "}
         voted
-        {waiting.length > 0 && <div className="mt-1 text-[hsl(var(--color-muted))]">Waiting on {waiting.map((p) => p.name).join(", ")}</div>}
+        {waiting.length > 0 && <div className="mt-1 text-black/60 [.dark_&]:text-white/70">Waiting on {waiting.map((p) => p.name).join(", ")}</div>}
       </Panel>
     </>
   );
@@ -644,9 +644,9 @@ function Leaderboard({ view, deltas }: { view: RoomView; deltas?: Record<string,
       {rows.map((p, i) => (
         <li key={p.id} className="flex min-h-[40px] items-center justify-between rounded-2xl border border-white/30 bg-white/10 px-3">
           <span>
-            <span className="mr-2 text-[hsl(var(--color-muted))]">{i + 1}.</span>
+            <span className="mr-2 text-black/60 [.dark_&]:text-white/70">{i + 1}.</span>
             {p.name}
-            {p.id === view.meId && <span className="text-[hsl(var(--color-muted))]"> (you)</span>}
+            {p.id === view.meId && <span className="text-black/60 [.dark_&]:text-white/70"> (you)</span>}
           </span>
           <span className="tabular-nums">
             {deltas?.[p.id] ? <span className="mr-2 text-sm font-semibold text-emerald-600 [.dark_&]:text-emerald-300">+{deltas[p.id]}</span> : null}
@@ -669,7 +669,7 @@ function Results({ view, act, pending, isHost, nameOf }: Ctx) {
     <>
       <Panel className="space-y-2 text-center">
         <div className={twMerge("text-3xl font-black", r.outcome === "impostors" && "text-rose-600 [.dark_&]:text-rose-300")}>{headline}</div>
-        <p className="text-sm text-[hsl(var(--color-muted))]">{r.reason}</p>
+        <p className="text-sm text-black/60 [.dark_&]:text-white/70">{r.reason}</p>
         <div className="rounded-2xl bg-gradient-to-br from-rose-600/85 to-rose-950/90 px-4 py-3 text-white">
           <div className="text-xs uppercase tracking-wider opacity-80">
             {r.mode === "spyfall" ? "The location was" : "The secret word was"} · {r.category}
@@ -702,7 +702,7 @@ function Results({ view, act, pending, isHost, nameOf }: Ctx) {
               </li>
             ))}
           </ul>
-          {r.firstVoterId && <p className="mt-2 text-xs text-[hsl(var(--color-muted))]">+1 bonus to {nameOf(r.firstVoterId)} for voting for the impostor first.</p>}
+          {r.firstVoterId && <p className="mt-2 text-xs text-black/60 [.dark_&]:text-white/70">+1 bonus to {nameOf(r.firstVoterId)} for voting for the impostor first.</p>}
         </Panel>
       )}
 
@@ -740,7 +740,7 @@ function Results({ view, act, pending, isHost, nameOf }: Ctx) {
           )}
         </div>
       ) : (
-        <Panel className="text-center text-sm text-[hsl(var(--color-muted))]">Waiting for the host…</Panel>
+        <Panel className="text-center text-sm text-black/60 [.dark_&]:text-white/70">Waiting for the host…</Panel>
       )}
     </>
   );
@@ -752,7 +752,7 @@ function Over({ view, act, pending, isHost }: Ctx) {
   return (
     <>
       <Panel className="text-center">
-        <div className="text-sm uppercase tracking-wider text-[hsl(var(--color-muted))]">Game over</div>
+        <div className="text-sm uppercase tracking-wider text-black/60 [.dark_&]:text-white/70">Game over</div>
         <div className="mt-1 text-3xl font-black">{winners.length ? `${winners.map((w) => w.name).join(" & ")} win${winners.length === 1 ? "s" : ""}!` : "Thanks for playing!"}</div>
       </Panel>
       <Panel>
@@ -766,7 +766,7 @@ function Over({ view, act, pending, isHost }: Ctx) {
           New game
         </Btn>
       ) : (
-        <Panel className="text-center text-sm text-[hsl(var(--color-muted))]">The host can start a new game.</Panel>
+        <Panel className="text-center text-sm text-black/60 [.dark_&]:text-white/70">The host can start a new game.</Panel>
       )}
     </>
   );

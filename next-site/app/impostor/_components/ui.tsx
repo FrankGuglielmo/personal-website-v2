@@ -51,7 +51,7 @@ export function Segmented<T extends string | number>({
 }) {
   return (
     <div>
-      <div className="mb-1 text-sm text-[hsl(var(--color-muted))]">{label}</div>
+      <div className="mb-1 text-sm text-black/60 [.dark_&]:text-white/70">{label}</div>
       <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-2xl border border-white/30 bg-white/10 p-1">
         {options.map((o) => (
           <button
