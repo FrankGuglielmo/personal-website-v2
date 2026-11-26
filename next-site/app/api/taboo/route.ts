@@ -8,6 +8,7 @@ import {
   applyAction,
   createRoom,
   findByToken,
+  normalizeRoom,
   tick,
   touch,
   viewFor,
@@ -31,7 +32,7 @@ const deck: DeckSource = {
 
 const ACTIONS: ReadonlySet<string> = new Set<ActionOp>([
   "setTeam", "setTeamName", "setSettings", "shuffleTeams", "start", "beginTurn", "correct", "skip", "buzz",
-  "undo", "pause", "resume", "toggleResult", "confirmReview", "kick", "claimHost", "endGame", "newGame", "leave",
+  "undo", "pause", "resume", "toggleResult", "confirmReview", "kick", "transferHost", "claimHost", "endGame", "newGame", "leave",
 ]);
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -68,8 +69,9 @@ async function withRoom<T>(
     if (snap) await adoptSnapshot(snap);
   }
   for (let attempt = 0; attempt < 5; attempt++) {
-    const room = await store.get(code);
-    if (!room) throw new GoneError("Room not found. It may have expired.");
+    const stored = await store.get(code);
+    if (!stored) throw new GoneError("Room not found. It may have expired.");
+    const room = normalizeRoom(stored);
     const before = room.version;
     const now = Date.now();
     const ticked = tick(room, now);

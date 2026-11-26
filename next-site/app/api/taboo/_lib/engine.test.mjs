@@ -1,7 +1,7 @@
 // Run: node --test app/api/taboo/_lib/engine.test.mjs   (Node 22.18+, type stripping)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GRACE_MS, GameError, addPlayer, applyAction, createRoom, tick, viewFor } from "./engine.ts";
+import { GRACE_MS, HOST_AWAY_MS, GameError, addPlayer, applyAction, createRoom, normalizeRoom, tick, viewFor } from "./engine.ts";
 
 const CARDS = Array.from({ length: 30 }, (_, id) => ({ id, word: `Word${id}`, taboo: ["a", "b", "c", "d", "e"] }));
 const deck = { ids: () => CARDS.map((c) => c.id), get: (id) => CARDS[id] };
@@ -134,4 +134,129 @@ test("kicking the active clue-giver ends the turn; host leaving hands off host",
   act(room, "p0", "leave", {}, now + 1);
   assert.equal(room.phase, "review");
   assert.equal(room.hostId, "p1");
+});
+
+const finishTurn = (room, t, corrects = 0) => {
+  act(room, room.clueGiverId, "beginTurn", {}, t);
+  for (let i = 0; i < corrects; i++) act(room, room.clueGiverId, "correct", { cardId: room.turn.currentCardId }, t + i + 1);
+  tick(room, room.turn.endsAt + GRACE_MS);
+  act(room, room.hostId, "confirmReview", {}, t + 100_000);
+};
+
+test("3 teams: balancing, team order, per-team clue-giver rotation", () => {
+  const { room, now } = setup(1);
+  act(room, "p0", "setSettings", { teamCount: 3 }, now);
+  for (let i = 1; i < 7; i++) addPlayer(room, { id: `p${i}`, name: `P${i}`, token: `t${i}` }, now + i);
+  assert.deepEqual(room.players.map((p) => p.team), [0, 1, 2, 0, 1, 2, 0]);
+  assert.deepEqual(room.teamNames, ["Team A", "Team B", "Team C"]);
+  act(room, "p0", "start", {}, now + 10);
+  const seen = [];
+  let t = now + 100;
+  for (let i = 0; i < 6; i++) {
+    seen.push([room.activeTeam, room.clueGiverId]);
+    finishTurn(room, t);
+    t += 200_000;
+  }
+  assert.deepEqual(seen, [[0, "p0"], [1, "p1"], [2, "p2"], [0, "p3"], [1, "p4"], [2, "p5"]]);
+});
+
+test("3 teams: every non-active team sees the card and can buzz; double buzz counts once", () => {
+  const { room, now } = setup(6);
+  act(room, "p0", "setSettings", { teamCount: 3 }, now);
+  act(room, "p0", "shuffleTeams", {}, now);
+  const byTeam = [0, 1, 2].map((t) => room.players.filter((p) => p.team === t).map((p) => p.id));
+  assert.ok(byTeam.every((m) => m.length === 2), "shuffle spreads 6 players over 3 teams");
+  act(room, "p0", "start", {}, now);
+  act(room, room.clueGiverId, "beginTurn", {}, now);
+  const giver = room.clueGiverId;
+  const guesser = byTeam[0].find((id) => id !== giver);
+  assert.equal(viewFor(room, guesser, now, deck).turn.card, null);
+  for (const id of [...byTeam[1], ...byTeam[2]]) assert.ok(viewFor(room, id, now, deck).turn.card, `${id} watches`);
+  const cardId = room.turn.currentCardId;
+  act(room, byTeam[1][0], "buzz", { cardId }, now + 1);
+  assert.throws(() => act(room, byTeam[2][0], "buzz", { cardId }, now + 2), /stale/);
+  assert.throws(() => act(room, guesser, "buzz", { cardId: room.turn.currentCardId }, now + 3), GameError);
+  assert.equal(room.turn.played.length, 1);
+  assert.equal(room.turn.played[0].result, "buzz");
+});
+
+test("4 teams: win only after all teams have equal turns; shared lead plays on", () => {
+  const { room, now } = setup(8);
+  act(room, "p0", "setSettings", { teamCount: 4, target: 1 }, now);
+  assert.equal(room.players.filter((p) => p.team === 3).length, 0, "existing players keep their teams");
+  act(room, "p0", "shuffleTeams", {}, now);
+  act(room, "p0", "start", {}, now);
+  let t = now + 1000;
+  finishTurn(room, t, 1); t += 200_000;
+  finishTurn(room, t, 0); t += 200_000;
+  finishTurn(room, t, 1); t += 200_000;
+  assert.equal(room.phase, "ready", "team D still to play");
+  finishTurn(room, t, 0); t += 200_000;
+  assert.equal(room.phase, "ready", "A and C tied for the lead: play on");
+  finishTurn(room, t, 1); t += 200_000;
+  finishTurn(room, t, 0); t += 200_000;
+  finishTurn(room, t, 0); t += 200_000;
+  assert.equal(room.phase, "ready");
+  finishTurn(room, t, 0);
+  assert.equal(room.phase, "over");
+  assert.equal(room.winner, 0);
+  assert.deepEqual(room.scores, [2, 0, 1, 0]);
+});
+
+test("4 teams need 2 players each; shrinking team count reassigns players", () => {
+  const { room, now } = setup(6);
+  act(room, "p0", "setSettings", { teamCount: 4 }, now);
+  act(room, "p0", "shuffleTeams", {}, now);
+  assert.throws(() => act(room, "p0", "start", {}, now), /at least 2/);
+  act(room, "p0", "setSettings", { teamCount: 2 }, now);
+  assert.ok(room.players.every((p) => p.team === 0 || p.team === 1));
+  assert.equal(room.teamNames.length, 2);
+  assert.equal(room.scores.length, 2);
+});
+
+test("only the VIP host can change rules, rename teams, or start/end/restart", () => {
+  const { room, now } = setup(4);
+  const before = JSON.stringify(room.settings);
+  for (const [op, args] of [
+    ["setSettings", { teamCount: 3 }],
+    ["setSettings", { roundSec: 90 }],
+    ["setSettings", { skipPenalty: 1 }],
+    ["setSettings", { winMode: "rounds", target: 3 }],
+    ["setTeamName", { team: 1, name: "Hackers" }],
+    ["shuffleTeams", {}],
+    ["start", {}],
+    ["transferHost", { playerId: "p1" }],
+    ["kick", { playerId: "p2" }],
+  ]) {
+    assert.throws(() => act(room, "p1", op, args, now), /Only the host/, `${op} rejected for non-host`);
+  }
+  assert.equal(JSON.stringify(room.settings), before);
+  assert.equal(room.teamNames[1], "Team B");
+  act(room, "p0", "start", {}, now);
+  assert.throws(() => act(room, "p1", "endGame", {}, now), /Only the host/);
+  act(room, "p0", "endGame", {}, now);
+  assert.throws(() => act(room, "p1", "newGame", {}, now), /Only the host/);
+});
+
+test("VIP hand-off and claim-host only when the host is away", () => {
+  const { room, now } = setup(3);
+  act(room, "p0", "transferHost", { playerId: "p1" }, now);
+  assert.equal(room.hostId, "p1");
+  assert.throws(() => act(room, "p0", "setSettings", { roundSec: 45 }, now), /Only the host/);
+  room.players.find((p) => p.id === "p1").lastSeen = now;
+  assert.throws(() => act(room, "p2", "claimHost", {}, now + 1000), /still here/);
+  act(room, "p2", "claimHost", {}, now + HOST_AWAY_MS + 1);
+  assert.equal(room.hostId, "p2");
+});
+
+test("rooms saved before team counts existed keep working", () => {
+  const { room, now } = setup(4);
+  act(room, "p0", "start", {}, now);
+  const legacy = JSON.parse(JSON.stringify(room));
+  delete legacy.settings.teamCount;
+  const r = normalizeRoom(legacy);
+  assert.equal(r.settings.teamCount, 2);
+  finishTurn(r, now + 1000, 1);
+  assert.equal(r.activeTeam, 1);
+  assert.deepEqual(r.scores, [1, 0]);
 });
