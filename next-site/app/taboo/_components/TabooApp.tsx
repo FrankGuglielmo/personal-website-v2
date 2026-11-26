@@ -258,7 +258,7 @@ function Game({ view, send, serverNow }: { view: RoomView; send: Send; serverNow
 }
 
 function Scoreboard({ view }: { view: RoomView }) {
-  const target = view.settings.winMode === "score" ? `First to ${view.settings.target}` : `${view.settings.target} rounds`;
+  const target = view.settings.winMode === "score" ? `First to ${view.settings.target}` : `${view.settings.target} round${view.settings.target === 1 ? "" : "s"}`;
   return (
     <Panel className="p-3 sm:p-3">
       <div className={twMerge("mb-1 flex justify-between px-1 text-xs", muted)}>
@@ -506,7 +506,7 @@ function RulesReadOnly({ view }: { view: RoomView }) {
     ["Turn length", `${s.roundSec}s`],
     ["Skip penalty", s.skipPenalty ? "-1 point" : "Free"],
     ["Buzz penalty", "-1 point"],
-    ["Game ends", s.winMode === "score" ? `First to ${s.target} points` : `After ${s.target} rounds`],
+    ["Game ends", s.winMode === "score" ? `First to ${s.target} points` : `After ${s.target} round${s.target === 1 ? "" : "s"}`],
   ];
   return (
     <Panel className="space-y-2">
@@ -795,9 +795,13 @@ function Over({ view, send }: { view: RoomView; send: Send }) {
         <h2 className="text-3xl font-bold">
           {w === "tie" || w === null ? "It's a tie!" : <span className={teamStyle(w).text}>{view.teamNames[w]} wins!</span>}
         </h2>
-        <p className="text-xl tabular-nums">
-          {view.scores[0]} – {view.scores[1]}
-        </p>
+        <ul className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-lg">
+          {teams(view).map((t) => (
+            <li key={t}>
+              <span className={teamStyle(t).text}>{view.teamNames[t]}</span> <span className="font-bold tabular-nums">{view.scores[t]}</span>
+            </li>
+          ))}
+        </ul>
         {view.me.isHost ? (
           <Btn tone="good" big className="w-full" onClick={() => send("newGame")}>
             New game (same room)
