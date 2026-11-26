@@ -1,8 +1,11 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { getCache } from "@vercel/functions";
+import { createCacheStore } from "./cacheStore";
 import { ROOM_TTL_MS, type Room } from "./engine";
 
 export interface RoomStore {
-  readonly kind: "memory" | "redis";
+  /** "redis" has a real compare-and-set; the others also lean on client snapshots. */
+  readonly kind: "memory" | "runtime-cache" | "redis";
   get(code: string): Promise<Room | null>;
   /** Compare-and-set on `expectedVersion` (null = must not exist). */
   put(room: Room, expectedVersion: number | null): Promise<boolean>;
@@ -45,12 +48,18 @@ const memoryStore: RoomStore = {
   },
 };
 
-/** Lets clients re-seed an instance that lost (or never had) the room. */
-export async function adoptSnapshot(room: Room): Promise<void> {
-  const cur = mem.rooms.get(room.code);
-  if (cur && cur.version >= room.version) return;
-  if (Date.now() - room.updatedAt > ROOM_TTL_MS) return;
-  mem.rooms.set(room.code, structuredClone(room));
+// ---------- Vercel Runtime Cache (default on Vercel) ----------
+
+// Shared by every function instance in the region, unlike instance memory.
+// On Hobby the cache is shared across the team's projects, hence the namespace.
+function runtimeCacheStore(): RoomStore {
+  const cache = getCache({ namespace: "impostor", keyHashFunction: (k) => k });
+  const store = createCacheStore<Room>(cache, {
+    prefix: "room:",
+    ttlMs: ROOM_TTL_MS,
+    newId: () => randomBytes(8).toString("hex"),
+  });
+  return { kind: "runtime-cache", get: store.get, put: store.put };
 }
 
 // ---------- Upstash Redis over REST (optional) ----------
@@ -102,7 +111,10 @@ export function getStore(): RoomStore {
   if (cached) return cached;
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  cached = url && token ? redisStore(url, token) : memoryStore;
+  const forced = process.env.IMPOSTOR_STORE;
+  if (url && token && forced !== "memory" && forced !== "runtime-cache") cached = redisStore(url, token);
+  else if (forced === "runtime-cache" || (forced !== "memory" && process.env.VERCEL)) cached = runtimeCacheStore();
+  else cached = memoryStore;
   return cached;
 }
 
