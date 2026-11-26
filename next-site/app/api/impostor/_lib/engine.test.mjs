@@ -185,14 +185,12 @@ test("rounds: no repeated secrets, no back-to-back impostor, game ends after N r
     secrets.add(room.round.secret);
     for (const id of room.round.impostors) assert.ok(!last.includes(id));
     last = room.round.impostors;
-    act(room, "p0", "endGame", {}, now);
-    if (i < 2) {
-      room.phase = "results";
-      act(room, "p0", "nextRound", {}, now);
-    }
+    act(room, "p0", "startDiscuss", {}, now);
+    act(room, "p0", "callVote", {}, now);
+    everyoneVotes(room, innocents(room)[0], now);
+    assert.equal(room.phase, "results");
+    act(room, "p0", "nextRound", {}, now);
   }
-  room.phase = "results";
-  act(room, "p0", "nextRound", {}, now);
   assert.equal(room.phase, "over");
 });
 
