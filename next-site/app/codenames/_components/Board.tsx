@@ -18,9 +18,9 @@ const solid: Record<CardColor, string> = {
 };
 
 const outlined: Record<CardColor, string> = {
-  blue: "bg-blue-500/25 border-blue-500 border-dashed",
-  red: "bg-rose-500/25 border-rose-500 border-dashed",
-  neutral: "bg-stone-300/30 border-stone-400 border-dashed",
+  blue: "bg-blue-600/60 text-white border-blue-300 border-dashed",
+  red: "bg-rose-600/60 text-white border-rose-300 border-dashed",
+  neutral: "bg-stone-400/50 text-stone-900 border-stone-300 border-dashed [.dark_&]:text-white",
   assassin: "bg-neutral-900/70 text-white border-neutral-900 border-dashed",
 };
 
@@ -106,7 +106,7 @@ export default function Board({
               style={{
                 fontSize: card.revealed && mode === "board"
                   ? `min(${100 / len}cqw, 20cqh)`
-                  : `min(${135 / len}cqw, 30cqh)`,
+                  : `min(${120 / len}cqw, 30cqh)`,
               }}
             >
               {card.word}

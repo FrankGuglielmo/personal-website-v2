@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
 import ThemeToggle from "@/components/ThemeToggle";
 import { PACKS, TEAMS, TEAM_LABEL, type GameEvent, type PlayerView, type RoomView, type Team } from "../_lib/types";
@@ -57,8 +58,13 @@ export default function WordSpiesApp() {
   );
 }
 
+// Portaled to <body> because the root layout's `.site-content` wrapper is its own
+// stacking context, which would keep this overlay under the fixed site sidebar.
 function Shell({ children }: { children: ReactNode }) {
-  return (
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => setTarget(document.body), []);
+  if (!target) return null;
+  return createPortal(
     <div
       className="fixed inset-0 z-[1000] flex flex-col overflow-y-auto text-[hsl(var(--color-text))]"
       style={{
@@ -73,7 +79,8 @@ function Shell({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center bg-[url('/images/lightmode-background.webp')] [.dark_&]:bg-[url('/images/darkmode-background.webp')]"
       />
       {children}
-    </div>
+    </div>,
+    target,
   );
 }
 
@@ -84,7 +91,7 @@ function Centered({ children }: { children: ReactNode }) {
 function Title({ small = false }: { small?: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={twMerge("font-black tracking-tight", small ? "text-lg" : "text-4xl sm:text-5xl")}>
+      <span className={twMerge("whitespace-nowrap font-black tracking-tight", small ? "text-lg" : "text-4xl sm:text-5xl")}>
         Word <span className="text-blue-600 [.dark_&]:text-blue-400">Sp</span>
         <span className="text-rose-600 [.dark_&]:text-rose-400">ies</span>
       </span>
@@ -250,30 +257,28 @@ function eventText(e: GameEvent, view: RoomView): string | null {
 /** Shows a short announcement whenever the server reports a new game event. */
 function EventToast({ view, big = false }: { view: RoomView; big?: boolean }) {
   const seenRef = useRef<number | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const [text, setText] = useState<string | null>(null);
   const seq = view.lastEvent?.seq ?? 0;
   useEffect(() => {
-    if (seenRef.current === null) {
-      seenRef.current = seq;
-      return;
-    }
-    if (seq <= seenRef.current) {
-      seenRef.current = seq;
-      return;
-    }
+    const first = seenRef.current === null;
+    const fresh = !first && seq > seenRef.current!;
     seenRef.current = seq;
-    const t = view.lastEvent ? eventText(view.lastEvent, view) : null;
-    if (!t) return;
+    if (!fresh) return;
+    const v = viewRef.current;
+    const t = v.lastEvent ? eventText(v.lastEvent, v) : null;
     setText(t);
+    if (!t) return;
     try {
-      if (view.me.role !== "board") navigator.vibrate?.(60);
+      if (v.me.role !== "board") navigator.vibrate?.(60);
     } catch {}
     const id = window.setTimeout(() => setText(null), 2600);
     return () => window.clearTimeout(id);
-  }, [seq, view]);
+  }, [seq]);
   if (!text) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-[20%] z-30 flex justify-center px-4" aria-live="polite">
+    <div className="pointer-events-none fixed inset-x-0 top-2 z-30 flex justify-center px-4" aria-live="polite">
       <div className={twMerge("rounded-3xl bg-neutral-900/85 px-6 py-4 text-center font-bold text-white shadow-2xl backdrop-blur", big ? "text-3xl" : "text-xl")}>
         {text}
       </div>
@@ -306,15 +311,15 @@ function PlayerRow({ p, view, send }: { p: PlayerView; view: RoomView; send: Sen
   return (
     <li className="flex items-center gap-2 py-1">
       <span className={twMerge("h-2 w-2 shrink-0 rounded-full", p.online ? "bg-emerald-500" : "bg-neutral-400")} aria-label={p.online ? "online" : "offline"} />
-      <span className="min-w-0 flex-1 truncate font-medium">
+      <span className="min-w-[3.5rem] flex-1 truncate font-medium">
         {p.name}
         {p.id === view.me.id && <span className={muted}> (you)</span>}
       </span>
-      {p.role === "spymaster" && <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold [.dark_&]:bg-white/15">Spymaster</span>}
+      {p.role === "spymaster" && !isBoard && <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold [.dark_&]:bg-white/15">Spymaster</span>}
       {isBoard && (
         <select
           aria-label={`Seat for ${p.name}`}
-          className="rounded-xl border border-white/40 bg-white/60 px-2 py-1 text-sm text-black [.dark_&]:bg-white/15 [.dark_&]:text-white"
+          className="min-w-0 max-w-[9.5rem] rounded-xl border border-white/40 bg-white/60 px-1.5 py-1 text-sm text-black [.dark_&]:bg-white/15 [.dark_&]:text-white"
           value={seatValue(p)}
           onChange={(e) => {
             const v = e.target.value;
@@ -470,7 +475,7 @@ function BoardGame({ view, send, room }: { view: RoomView; send: Send; room: Roo
             <Btn onClick={() => void send("select", { index: null })}>Cancel</Btn>
           </div>
         ) : (
-          <p className={twMerge("flex-1 text-sm", muted)}>
+          <p className={twMerge("min-w-[14rem] flex-1 text-sm", muted)}>
             Tap the word {view.turn ? TEAM_LABEL[view.turn] : "the team"} picks. Join code <b className="font-mono tracking-widest">{view.code}</b>
           </p>
         )}
@@ -572,14 +577,14 @@ function PhoneHeader({ view, onRole }: { view: RoomView; onRole?: () => void }) 
   const me = view.me;
   return (
     <header className="flex items-center gap-2">
-      <Title small />
-      <span className={twMerge("text-sm", muted)}>· {view.code}</span>
+      {!onRole && <Title small />}
+      <span className={twMerge("whitespace-nowrap text-sm", muted)}>{onRole ? `Room ${view.code}` : `· ${view.code}`}</span>
       <div className="flex-1" />
       {onRole && (
         <button
           type="button"
           onClick={onRole}
-          className={twMerge("rounded-full px-3 py-1 text-sm font-semibold shadow", me.team ? teamChip[me.team] : "glass border")}
+          className={twMerge("whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold shadow", me.team ? teamChip[me.team] : "glass border")}
         >
           {me.team ? `${TEAM_LABEL[me.team]} ${me.role === "spymaster" ? "spymaster" : "operative"}` : "Watching"} ▾
         </button>

@@ -1,6 +1,6 @@
 # Word Spies (Codenames-style) at `/codenames`: plan
 
-**Status:** plan only. No feature code yet. Each item under "Open decisions" needs Frank's pick; the **Recommended** option is the default if he doesn't choose.
+**Status:** Phase 1 is built with every **Recommended** default below. The other options are still available as follow-ups.
 
 ## Summary
 
