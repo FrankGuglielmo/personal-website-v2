@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
+import FullscreenToggle from "@/components/FullscreenToggle";
 import type { ActionOp, PlayerView, RoomView, Settings } from "../_lib/types";
 import { keepAwake, phaseAlert, timeUpAlert, unlockAudio } from "./feedback";
 import PeekCard from "./PeekCard";
@@ -113,7 +114,10 @@ function Home({
   return (
     <div className="space-y-4">
       <Panel>
-        <h1 className="text-3xl font-black tracking-tight">Impostor</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-3xl font-black tracking-tight">Impostor</h1>
+          <FullscreenToggle />
+        </div>
         <p className="mt-1 text-sm text-black/60 [.dark_&]:text-white/70">
           Everyone gets the same secret, except the impostor. Ask questions, give clues, then vote out who&apos;s faking it. Best with 6–10 people, each on their own phone.
         </p>
@@ -226,9 +230,12 @@ function GlassHeader({ view, onLeave }: { view: RoomView; onLeave: () => void })
           {view.category && ` · ${view.category}`}
         </div>
       </div>
-      <Btn className="min-h-[40px] px-3 text-sm" onClick={onLeave}>
-        Leave
-      </Btn>
+      <div className="flex shrink-0 items-center gap-2">
+        <FullscreenToggle />
+        <Btn className="min-h-[40px] px-3 text-sm" onClick={onLeave}>
+          Leave
+        </Btn>
+      </div>
     </Panel>
   );
 }
