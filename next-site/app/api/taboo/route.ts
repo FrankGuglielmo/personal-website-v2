@@ -11,7 +11,7 @@ import {
   normalizeRoom,
   repairRoom,
   tick,
-  touch,
+  TOUCH_MS,
   viewFor,
   type DeckSource,
   type Room,
@@ -62,6 +62,14 @@ class MissingRoomError extends Error {}
 /** The player was kicked or left. Clients drop their session. */
 class RemovedError extends Error {}
 
+/** Records that a player is still connected, at most once per TOUCH_MS. */
+async function markSeen(room: Room, playerId: string, now: number) {
+  const p = room.players.find((x) => x.id === playerId);
+  if (!p || now - p.lastSeen < TOUCH_MS) return;
+  p.lastSeen = now;
+  await getStore().touch(room.code, playerId, now);
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const upgrade = (r: Room | null) => (r ? normalizeRoom(r) : null);
 const merge = (rooms: (Room | null)[]) => mergeRooms(rooms, (r) => repairRoom(normalizeRoom(r)));
@@ -69,13 +77,14 @@ const merge = (rooms: (Room | null)[]) => mergeRooms(rooms, (r) => repairRoom(no
 /**
  * Builds the room from every copy this request can see (shared store, this
  * instance's memory, the caller's snapshot), runs `fn`, and writes the result
- * back whenever the shared copy is missing anything or presence is due.
+ * back whenever the shared copy is missing anything. Presence lives in its own
+ * record (see markSeen), so a poll never writes the room.
  * See merge.ts for why there is no compare-and-set.
  */
 async function withRoom(
   code: string,
   snapshot: unknown,
-  fn: (room: Room, now: number) => { changed: boolean; seen?: boolean },
+  fn: (room: Room, now: number) => boolean,
 ): Promise<{ room: Room; now: number }> {
   const store = getStore();
   const snap = upgrade(openRoom(snapshot, code));
@@ -88,12 +97,13 @@ async function withRoom(
     room = merge([stored, upgrade(recallLocal(code))]);
   }
   if (!room) throw new MissingRoomError("Room not found. It may have expired.");
+  const presence = await store.getPresence(code);
+  for (const p of room.players) p.lastSeen = Math.max(p.lastSeen, presence[p.id] ?? 0);
   const now = Date.now();
   const before = structuredClone(room);
   const ticked = tick(room, now);
-  const { changed, seen } = fn(room, now);
-  if (ticked || changed) stampChanges(before, room, now);
-  if (seen || !covers(stored, room)) {
+  if (fn(room, now) || ticked) stampChanges(before, room, now);
+  if (!covers(stored, room)) {
     room.version += 1;
     room.updatedAt = now;
     await store.set(room);
@@ -125,6 +135,7 @@ export async function POST(req: Request) {
         for (const p of room.players) p.seatAt = now;
         await store.set(room);
         rememberLocal(room);
+        await store.touch(code, host.id, now);
         return okView(room, host.id, now, { playerId: host.id, token: host.token });
       }
       return reply({ ok: false, error: "Couldn't create a room, try again" }, 503);
@@ -137,8 +148,9 @@ export async function POST(req: Request) {
       const player = { id: newId(), name: String(body.name ?? ""), token: newToken() };
       const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
         addPlayer(r, player, t);
-        return { changed: true };
+        return true;
       });
+      await store.touch(code, player.id, now);
       return okView(room, player.id, now, { playerId: player.id, token: player.token });
     }
 
@@ -152,14 +164,14 @@ export async function POST(req: Request) {
       const me = findByToken(r, token);
       if (!me) throw new RemovedError("You're no longer in this room");
       playerId = me.id;
-      const seen = touch(r, me.id, t);
-      if (op === "sync") return { changed: false, seen };
+      if (op === "sync") return false;
       applyAction(r, me.id, op as ActionOp, body, t, deck);
-      return { changed: true, seen };
+      return true;
     });
     if (op === "leave" || !room.players.some((p) => p.id === playerId)) {
       return reply({ ok: false, error: "You left the room", gone: true, removed: true });
     }
+    await markSeen(room, playerId, now);
     return okView(room, playerId, now);
   } catch (err) {
     if (err instanceof MissingRoomError) return reply({ ok: false, error: err.message, missing: true }, 404);
