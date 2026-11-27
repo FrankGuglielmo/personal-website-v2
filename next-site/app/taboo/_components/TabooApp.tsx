@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import FullscreenToggle from "@/components/FullscreenToggle";
 import type { CardResult, PlayedView, PublicCard, RoomView, TeamIdx } from "../_lib/types";
 import { MIN_PER_TEAM, ROUND_OPTIONS, TEAM_COUNT_OPTIONS } from "../_lib/types";
 import { Btn, Panel, Segmented, inputCls } from "./ui";
@@ -95,14 +96,19 @@ export default function TabooApp() {
 
   return (
     <main className={twMerge("mx-auto w-full max-w-xl px-4 pb-32 md:pb-12 md:pt-10", inGame ? "pt-3" : "pt-6")}>
-      {inGame ? (
-        <h1 className="sr-only">Forbidden Words</h1>
-      ) : (
-        <header className="mb-4 text-center">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Forbidden Words</h1>
-          <p className={twMerge("text-sm", muted)}>A Taboo-style party game · one phone each</p>
-        </header>
-      )}
+      <header className={twMerge("relative mb-4", inGame ? "mb-3 flex justify-end" : "text-center")}>
+        {inGame ? (
+          <h1 className="sr-only">Forbidden Words</h1>
+        ) : (
+          <>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Forbidden Words</h1>
+            <p className={twMerge("text-sm", muted)}>A Taboo-style party game · one phone each</p>
+          </>
+        )}
+        <div className={twMerge(inGame ? "" : "absolute right-0 top-0")}>
+          <FullscreenToggle />
+        </div>
+      </header>
 
       {room.error && (
         <div role="alert" className="mb-3 flex items-start justify-between gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-sm">

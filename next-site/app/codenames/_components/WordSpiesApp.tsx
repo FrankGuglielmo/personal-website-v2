@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
+import FullscreenToggle from "@/components/FullscreenToggle";
 import ThemeToggle from "@/components/ThemeToggle";
+import JoinQr from "./JoinQr";
 import { PACKS, TEAMS, TEAM_LABEL, type GameEvent, type PlayerView, type RoomView, type Team } from "../_lib/types";
 import Board from "./Board";
 import { Btn, Panel, inputCls, muted, teamChip, teamText } from "./ui";
@@ -22,7 +24,8 @@ export default function WordSpiesApp() {
   const [prefillCode, setPrefillCode] = useState("");
 
   useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("room")?.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = (params.get("room") || params.get("code"))?.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
     const code = fromUrl || lastRoomCode();
     const saved = code ? loadSession(code) : null;
     if (saved) resume(saved);
@@ -66,7 +69,7 @@ function Shell({ children }: { children: ReactNode }) {
   if (!target) return null;
   return createPortal(
     <div
-      className="fixed inset-0 z-[1000] flex flex-col overflow-y-auto text-[hsl(var(--color-text))]"
+      className="party-game-shell fixed inset-0 z-[1000] flex flex-col overflow-y-auto text-[hsl(var(--color-text))]"
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
@@ -139,6 +142,7 @@ function Home({ room, prefillCode }: { room: Room; prefillCode: string }) {
         placeholder="Your name"
         aria-label="Your name"
         autoComplete="nickname"
+        autoFocus={prefillCode.length === 4}
         onKeyDown={(e) => e.key === "Enter" && code.length === 4 && name.trim() && join()}
       />
       <Btn tone="primary" big disabled={room.busy || code.length !== 4 || !name.trim()} onClick={join}>
@@ -164,7 +168,10 @@ function Home({ room, prefillCode }: { room: Room; prefillCode: string }) {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-6">
       <div className="flex items-center justify-between gap-3">
         <Title />
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <FullscreenToggle />
+        </div>
       </div>
       <p className={twMerge("-mt-2", muted)}>
         A team word-guessing game. One screen on the TV, spymasters on their phones.
@@ -203,6 +210,12 @@ function Home({ room, prefillCode }: { room: Room; prefillCode: string }) {
 function joinUrl() {
   if (typeof window === "undefined") return "/codenames";
   return `${window.location.host}/codenames`;
+}
+
+/** Full URL phones open when they scan the TV QR. Uses the existing ?room= join param. */
+function joinShareUrl(code: string) {
+  if (typeof window === "undefined") return `/codenames?room=${code}`;
+  return `${window.location.origin}/codenames?room=${code}`;
 }
 
 function TurnPill({ view, big = false }: { view: RoomView; big?: boolean }) {
@@ -386,12 +399,20 @@ function BoardLobby({ view, send, room }: { view: RoomView; send: Send; room: Ro
       <Panel className="flex min-w-0 flex-col items-center justify-center gap-3 text-center">
         <div className="flex w-full items-center justify-between">
           <Title small />
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <FullscreenToggle />
+          </div>
         </div>
-        <p className={muted}>On your phone, go to</p>
-        <p className="max-w-full break-all text-lg font-bold sm:text-2xl">{host}</p>
-        <p className={muted}>and enter the code</p>
-        <p className="font-mono text-[clamp(3rem,12vmin,7rem)] font-black leading-none tracking-[0.25em]">{view.code}</p>
+        <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-8">
+          <JoinQr url={joinShareUrl(view.code)} size={200} label="Scan to join" />
+          <div className="min-w-0 text-center">
+            <p className={muted}>On your phone, go to</p>
+            <p className="max-w-full break-all text-lg font-bold sm:text-2xl">{host}</p>
+            <p className={muted}>and enter the code</p>
+            <p className="font-mono text-[clamp(3rem,12vmin,7rem)] font-black leading-none tracking-[0.25em]">{view.code}</p>
+          </div>
+        </div>
         <p className={twMerge("text-sm", muted)}>Spymasters must join. Everyone else can join or just watch the TV.</p>
       </Panel>
       <Panel className="flex min-w-0 flex-col gap-4">
@@ -436,6 +457,7 @@ function BoardLobby({ view, send, room }: { view: RoomView; send: Send; room: Ro
 function BoardGame({ view, send, room }: { view: RoomView; send: Send; room: Room }) {
   const [menu, setMenu] = useState(false);
   const [players, setPlayers] = useState(false);
+  const [joinQr, setJoinQr] = useState(false);
   const cards = view.cards ?? [];
   const sel = view.selected;
   const over = view.phase === "over";
@@ -480,6 +502,15 @@ function BoardGame({ view, send, room }: { view: RoomView; send: Send; room: Roo
           </p>
         )}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="shrink-0 rounded-xl bg-white p-0.5 shadow-sm"
+            aria-label="Show join QR code"
+            onClick={() => setJoinQr(true)}
+          >
+            <JoinQr url={joinShareUrl(view.code)} size={64} />
+          </button>
+          <FullscreenToggle />
           <Btn disabled={!view.canUndo} onClick={() => void send("undo")}>Undo</Btn>
           {!over && view.turn && (
             <Btn tone={view.turn} onClick={() => void send("endTurn")}>
@@ -493,11 +524,16 @@ function BoardGame({ view, send, room }: { view: RoomView; send: Send; room: Roo
             {menu && (
               <div role="menu" className="glass absolute bottom-full right-0 z-30 mb-2 flex w-56 flex-col gap-1 rounded-2xl border p-2 shadow-xl">
                 <MenuItem onClick={() => { setMenu(false); setPlayers(true); }}>Players &amp; roles</MenuItem>
+                <MenuItem onClick={() => { setMenu(false); setJoinQr(true); }}>Show join QR</MenuItem>
                 <MenuItem onClick={() => { setMenu(false); if (over || window.confirm("Deal a new board? This game will end.")) void send("newGame"); }}>New game</MenuItem>
                 <MenuItem onClick={() => { setMenu(false); if (window.confirm("Back to the lobby? This game will end.")) void send("toLobby"); }}>Back to lobby</MenuItem>
                 <div className="flex items-center justify-between px-3 py-1">
                   <span className="text-sm">Theme</span>
                   <ThemeToggle />
+                </div>
+                <div className="flex items-center justify-between px-3 py-1">
+                  <span className="text-sm">Display</span>
+                  <FullscreenToggle />
                 </div>
                 <MenuItem onClick={() => { setMenu(false); if (window.confirm("Close this board? Players can make another device the board.")) room.leaveLocal(view.code, null); }}>
                   Close this board
@@ -511,6 +547,17 @@ function BoardGame({ view, send, room }: { view: RoomView; send: Send; room: Roo
       {players && (
         <Modal title={`Players · room ${view.code}`} onClose={() => setPlayers(false)}>
           <TeamColumns view={view} send={send} />
+        </Modal>
+      )}
+      {joinQr && (
+        <Modal title={`Join · room ${view.code}`} onClose={() => setJoinQr(false)}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <JoinQr url={joinShareUrl(view.code)} size={280} label="Scan to join" />
+            <p className={twMerge("text-sm", muted)}>
+              Or go to {joinUrl()} and enter the code
+            </p>
+            <p className="font-mono text-4xl font-black tracking-[0.25em]">{view.code}</p>
+          </div>
         </Modal>
       )}
     </div>
