@@ -2,8 +2,21 @@ import { randomBytes, randomInt } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { ActionOp, ApiResponse } from "@/app/impostor/_lib/types";
 import { CATEGORIES } from "./_lib/packs";
-import { GameError, ROOM_TTL_MS, addPlayer, applyAction, createRoom, findByToken, tick, touch, viewFor, type Room } from "./_lib/engine";
-import { getStore, openRoom, sealRoom } from "./_lib/store";
+import {
+  GameError,
+  TOUCH_MS,
+  addPlayer,
+  applyAction,
+  applyPresence,
+  createRoom,
+  findByToken,
+  settle,
+  tick,
+  viewFor,
+  type Room,
+} from "./_lib/engine";
+import { covers, mergeRooms, stampChanges } from "./_lib/merge";
+import { getStore, openRoom, recallLocal, rememberLocal, sealRoom } from "./_lib/store";
 
 // Every room operation lives in this one handler. Production state lives in a
 // shared store (Runtime Cache or Redis); each client also carries an encrypted
@@ -27,45 +40,81 @@ function reply(body: ApiResponse, status = 200) {
 }
 
 function okView(room: Room, playerId: string, now: number, extra: { playerId?: string; token?: string } = {}) {
-  const store = getStore();
-  return reply({
-    ok: true,
-    view: viewFor(room, playerId, now, CATEGORIES),
-    snapshot: store.kind === "redis" ? undefined : sealRoom(room),
-    ...extra,
-  });
+  return reply({ ok: true, view: viewFor(room, playerId, now, CATEGORIES), snapshot: sealRoom(room), ...extra });
 }
 
 class GoneError extends Error {}
 
-/** Loads a room, runs `fn`, and saves with compare-and-set, retrying on races. */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Builds the room from every copy this request can see (shared store, this
+ * instance's memory, the caller's snapshot), runs `fn`, and writes the result
+ * back whenever the shared copy is missing anything. `fn` returns whether the
+ * room changed. See merge.ts for why there is no compare-and-set.
+ */
 async function withRoom(
   code: string,
   snapshot: unknown,
   fn: (room: Room, now: number) => boolean,
+  writing = false,
 ): Promise<{ room: Room; now: number }> {
   const store = getStore();
-  const snap = store.kind === "redis" ? null : openRoom(snapshot, code);
-  const snapFresh = snap && Date.now() - snap.updatedAt < ROOM_TTL_MS ? snap : null;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    let room = await store.get(code);
-    if (snapFresh && (!room || snapFresh.version > room.version)) {
-      if (!(await store.put(snapFresh, room ? room.version : null))) continue;
-      room = structuredClone(snapFresh);
-    }
-    if (!room) throw new GoneError("Room not found. It may have expired.");
-    const before = room.version;
-    const now = Date.now();
-    const ticked = tick(room, now);
-    const changed = fn(room, now);
-    if (ticked || changed) {
-      room.version = before + 1;
-      room.updatedAt = now;
-      if (!(await store.put(room, before))) continue;
-    }
-    return { room, now };
+  const snap = openRoom(snapshot, code);
+  // Each read can independently be a stale copy. A write built on one would
+  // drop what that copy is missing, so writes start from several merged reads.
+  let stored = writing
+    ? mergeRooms(await Promise.all([store.get(code), store.get(code), store.get(code)]))
+    : await store.get(code);
+  let room = mergeRooms([stored, recallLocal(code), snap]);
+  // A missing room can be a brief cache miss; look again before giving up.
+  for (let i = 0; !room && i < 4; i++) {
+    await sleep(250 + i * 250);
+    stored = await store.get(code);
+    room = mergeRooms([stored, recallLocal(code)]);
   }
-  throw new GameError("The room is busy, try again");
+  if (!room) throw new GoneError("Room not found. It may have expired.");
+  applyPresence(room, await store.getPresence(code));
+  const now = Date.now();
+  const before = structuredClone(room);
+  settle(room, now);
+  tick(room, now);
+  fn(room, now);
+  stampChanges(before, room, now);
+  if (!covers(stored, room)) {
+    room.version += 1;
+    room.updatedAt = now;
+    await store.set(room);
+  }
+  rememberLocal(room);
+  return { room, now };
+}
+
+/**
+ * A join raced by another write can vanish from the shared copy before the
+ * new phone's first poll brings it back, so read back and re-merge until the
+ * seat shows up.
+ */
+async function confirmSeat(room: Room, playerId: string) {
+  const store = getStore();
+  for (let i = 0; i < 4; i++) {
+    await sleep(150 + Math.random() * 200);
+    const stored = mergeRooms(await Promise.all([store.get(room.code), store.get(room.code)]));
+    if (stored?.players.some((p) => p.id === playerId)) continue;
+    const merged = mergeRooms([stored, recallLocal(room.code), room])!;
+    merged.version += 1;
+    merged.updatedAt = Date.now();
+    await store.set(merged);
+    rememberLocal(merged);
+  }
+}
+
+/** Records that a player is still connected, at most once per TOUCH_MS. */
+async function markSeen(room: Room, playerId: string, now: number) {
+  const p = room.players.find((x) => x.id === playerId);
+  if (!p || now - p.lastSeen < TOUCH_MS) return;
+  p.lastSeen = now;
+  await getStore().touch(room.code, playerId, now);
 }
 
 export async function POST(req: Request) {
@@ -82,11 +131,16 @@ export async function POST(req: Request) {
     if (op === "create") {
       for (let i = 0; i < 10; i++) {
         const code = newCode();
-        if (await store.get(code)) continue;
+        if (recallLocal(code) || (await store.get(code))) continue;
         const now = Date.now();
         const host = { id: newId(), name: body.name, token: newToken() };
         const room = createRoom(code, host, now, CATEGORIES);
-        if (!(await store.put(room, null))) continue;
+        room.gameAt = now;
+        room.removed = [];
+        for (const p of room.players) p.seatAt = now;
+        await store.set(room);
+        rememberLocal(room);
+        await store.touch(code, host.id, now);
         return okView(room, host.id, now, { playerId: host.id, token: host.token });
       }
       return reply({ ok: false, error: "Couldn't create a room, try again" }, 503);
@@ -98,10 +152,11 @@ export async function POST(req: Request) {
     if (op === "join") {
       const player = { id: newId(), name: body.name, token: newToken() };
       const { room, now } = await withRoom(code, body.snapshot, (r, t) => {
-        if (r.players.some((p) => p.id === player.id)) return false;
         addPlayer(r, player, t);
         return true;
-      });
+      }, true);
+      await confirmSeat(room, player.id);
+      await store.touch(code, player.id, now);
       return okView(room, player.id, now, { playerId: player.id, token: player.token });
     }
 
@@ -115,11 +170,11 @@ export async function POST(req: Request) {
       const me = findByToken(r, token);
       if (!me) throw new GoneError("You're no longer in this room");
       playerId = me.id;
-      const seen = touch(r, me.id, t);
-      if (op === "sync") return seen;
+      if (op === "sync") return false;
       applyAction(r, me.id, op as ActionOp, body, t, CATEGORIES);
       return true;
-    });
+    }, op !== "sync");
+    await markSeen(room, playerId, now);
     if (op === "leave" || !room.players.some((p) => p.id === playerId)) {
       return reply({ ok: false, error: "You left the room", gone: true });
     }
