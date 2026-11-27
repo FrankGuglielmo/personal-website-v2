@@ -14,7 +14,7 @@ export const HOST_AWAY_MS = 45_000;
 // Presence pings are store writes; keep them sparse to stay inside the free
 // Runtime Cache write allotment.
 const ONLINE_MS = 25_000;
-const TOUCH_EVERY_MS = 10_000;
+export const TOUCH_MS = 10_000;
 const GUESS_OPTIONS = 10;
 const NAME_MAX = 20;
 
@@ -30,6 +30,8 @@ export type Player = {
   joinedAt: number;
   lastSeen: number;
   score: number;
+  /** When this player's name/token last changed (used to merge diverged copies). */
+  seatAt?: number;
 };
 
 type Ballot = { target: string; at: number };
@@ -71,6 +73,10 @@ export type Room = {
   result: ResultView | null;
   usedSecrets: string[];
   lastImpostors: string[];
+  /** When anything outside the player list last changed (used to merge diverged copies). */
+  gameAt?: number;
+  /** Ids of players who were kicked or left; never re-added. */
+  removed?: string[];
 };
 
 const shuffle = <T>(arr: T[]): T[] => {
@@ -140,12 +146,9 @@ export function addPlayer(room: Room, p: { id: string; name: unknown; token: str
 export const findByToken = (room: Room, token: string) =>
   token ? room.players.find((p) => p.token === token) ?? null : null;
 
-/** Returns true when lastSeen moved enough to be worth a write. */
-export function touch(room: Room, id: string, now: number): boolean {
-  const p = room.players.find((x) => x.id === id);
-  if (!p || now - p.lastSeen < TOUCH_EVERY_MS) return false;
-  p.lastSeen = now;
-  return true;
+/** Folds the separately stored presence record into the players' lastSeen. */
+export function applyPresence(room: Room, seen: Record<string, number>) {
+  for (const p of room.players) p.lastSeen = Math.max(p.lastSeen, seen[p.id] ?? 0);
 }
 
 const isActive = (phase: Phase) => phase === "reveal" || phase === "discuss" || phase === "vote" || phase === "guess";
@@ -330,23 +333,33 @@ function finish(
   room.phase = "results";
 }
 
-/** Applies anything that became due because time passed. */
+/**
+ * Applies anything that became due because time passed. Each transition runs
+ * at its due time rather than `now`, so every instance derives the same room.
+ */
 export function tick(room: Room, now: number): boolean {
+  let changed = false;
+  for (let i = 0; i < 8; i++) {
+    const r = room.round;
+    if (!r) break;
+    if (room.phase === "discuss" && now >= r.discussEndsAt + GRACE_MS) {
+      startVote(room, r, r.discussEndsAt + GRACE_MS, alive(r), false);
+    } else if (room.phase === "vote" && r.vote && now >= r.vote.endsAt + GRACE_MS) {
+      resolveVote(room, r, r.vote.endsAt + GRACE_MS);
+    } else if (room.phase === "guess" && r.guess && now >= r.guess.endsAt + GRACE_MS) {
+      resolveGuess(room, r, null);
+    } else break;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Advances a merged room whose ready taps or ballots were combined from several copies. */
+export function settle(room: Room, now: number) {
   const r = room.round;
-  if (!r) return false;
-  if (room.phase === "discuss" && now >= r.discussEndsAt + GRACE_MS) {
-    startVote(room, r, now, alive(r), false);
-    return true;
-  }
-  if (room.phase === "vote" && r.vote && now >= r.vote.endsAt + GRACE_MS) {
-    resolveVote(room, r, now);
-    return true;
-  }
-  if (room.phase === "guess" && r.guess && now >= r.guess.endsAt + GRACE_MS) {
-    resolveGuess(room, r, null);
-    return true;
-  }
-  return false;
+  if (!r) return;
+  if (room.phase === "reveal" && r.participants.every((id) => r.ready.includes(id))) startDiscuss(room, r, now);
+  maybeResolveVote(room, r, now);
 }
 
 function removePlayer(room: Room, id: string, now: number) {
